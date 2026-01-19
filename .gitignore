@@ -6,6 +6,7 @@
 /*.sln
 /*.code-workspace
 /*.vscode-workspace
+.*/
 
 # Ignore generated folders
 node_modules/

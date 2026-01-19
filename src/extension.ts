@@ -464,10 +464,13 @@ async function configureAntigravityModels(silent: boolean = false): Promise<void
                 const selection = await vscode.window.showInformationMessage(
                     'Antigravity models configured! They should now appear under Copilot Chat → Manage Models.',
                     'Open Manage Models',
+                    'Show Quick Enable Guide',
                     'Reload'
                 );
                 if (selection === 'Open Manage Models') {
                     void vscode.commands.executeCommand('workbench.action.chat.openLanguageModelsSettings');
+                } else if (selection === 'Show Quick Enable Guide') {
+                    await showModelEnablementGuide();
                 } else if (selection === 'Reload') {
                     void vscode.commands.executeCommand('workbench.action.reloadWindow');
                 }
@@ -543,12 +546,15 @@ async function configureAntigravityModels(silent: boolean = false): Promise<void
             const selection = await vscode.window.showInformationMessage(
                 'Antigravity models configured! After reload, go to Copilot Chat → Model Picker → Manage Models to enable them.',
                 'Reload',
-                'Open Manage Models'
+                'Open Manage Models',
+                'Show Quick Enable Guide'
             );
             if (selection === 'Reload') {
                 void vscode.commands.executeCommand('workbench.action.reloadWindow');
             } else if (selection === 'Open Manage Models') {
                 void vscode.commands.executeCommand('workbench.action.chat.openLanguageModelsSettings');
+            } else if (selection === 'Show Quick Enable Guide') {
+                await showModelEnablementGuide();
             }
         }
     } catch (error) {
@@ -645,15 +651,20 @@ async function updateStoredEndpoints(newUrl: string): Promise<boolean> {
         }
 
         const content = fs.readFileSync(filePath, 'utf8');
-        const data = JSON.parse(content) as {
-            value?: Array<{
-                name?: string;
-                vendor?: string;
-                models?: Array<{ url?: string; [key: string]: unknown }>;
-            }>;
-        };
-
-        if (!data.value || !Array.isArray(data.value)) {
+        const parsed = JSON.parse(content);
+        
+        // Handle both formats: plain array or { value: [...] } wrapper
+        let providerGroups: Array<{
+            name?: string;
+            vendor?: string;
+            models?: Array<{ url?: string; [key: string]: unknown }>;
+        }>;
+        
+        if (Array.isArray(parsed)) {
+            providerGroups = parsed;
+        } else if (parsed && Array.isArray(parsed.value)) {
+            providerGroups = parsed.value;
+        } else {
             return false;
         }
 
@@ -661,7 +672,7 @@ async function updateStoredEndpoints(newUrl: string): Promise<boolean> {
         const providerGroupName = lmCfg.get<string>('providerGroupName', 'Antigravity');
 
         let updated = false;
-        for (const group of data.value) {
+        for (const group of providerGroups) {
             // Only update our Antigravity group
             if (group.name === providerGroupName && group.vendor === 'customoai' && Array.isArray(group.models)) {
                 for (const model of group.models) {
@@ -674,7 +685,8 @@ async function updateStoredEndpoints(newUrl: string): Promise<boolean> {
         }
 
         if (updated) {
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 4), 'utf8');
+            // Write as plain array (correct VS Code format)
+            fs.writeFileSync(filePath, JSON.stringify(providerGroups, null, 4), 'utf8');
             outputChannel?.appendLine(`[INFO] Updated ${providerGroupName} model endpoints in chatLanguageModels.json`);
         }
 
@@ -701,32 +713,33 @@ async function updateOrCreateProviderGroup(
     }
 
     try {
-        let data: {
-            value: Array<{
+        // VS Code's chatLanguageModels.json is a plain array of provider groups
+        type ProviderGroup = {
+            name: string;
+            vendor: string;
+            models: Array<{
+                id: string;
                 name: string;
-                vendor: string;
-                models: Array<{
-                    id: string;
-                    name: string;
-                    url: string;
-                    toolCalling?: boolean;
-                    vision?: boolean;
-                    thinking?: boolean;
-                    maxInputTokens?: number;
-                    maxOutputTokens?: number;
-                }>;
+                url: string;
+                toolCalling?: boolean;
+                vision?: boolean;
+                thinking?: boolean;
+                maxInputTokens?: number;
+                maxOutputTokens?: number;
             }>;
         };
 
+        let providerGroups: ProviderGroup[] = [];
+
         if (fs.existsSync(filePath)) {
             const content = fs.readFileSync(filePath, 'utf8');
-            data = JSON.parse(content);
-        } else {
-            data = { value: [] };
-        }
-
-        if (!data.value || !Array.isArray(data.value)) {
-            data.value = [];
+            const parsed = JSON.parse(content);
+            // Handle both formats: plain array or { value: [...] } wrapper
+            if (Array.isArray(parsed)) {
+                providerGroups = parsed;
+            } else if (parsed && Array.isArray(parsed.value)) {
+                providerGroups = parsed.value;
+            }
         }
 
         // Convert models to the format used in chatLanguageModels.json
@@ -742,17 +755,17 @@ async function updateOrCreateProviderGroup(
         }));
 
         // Find existing group or create new one
-        const existingGroupIndex = data.value.findIndex(
+        const existingGroupIndex = providerGroups.findIndex(
             g => g.name === providerGroupName && g.vendor === 'customoai'
         );
 
         if (existingGroupIndex >= 0) {
             // Update existing group
-            data.value[existingGroupIndex].models = modelConfigs;
+            providerGroups[existingGroupIndex].models = modelConfigs;
             outputChannel?.appendLine(`[INFO] Updated existing provider group '${providerGroupName}' with ${modelConfigs.length} models`);
         } else {
             // Create new group
-            data.value.push({
+            providerGroups.push({
                 name: providerGroupName,
                 vendor: 'customoai',
                 models: modelConfigs,
@@ -766,7 +779,8 @@ async function updateOrCreateProviderGroup(
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 4), 'utf8');
+        // Write as plain array (correct VS Code format)
+        fs.writeFileSync(filePath, JSON.stringify(providerGroups, null, 4), 'utf8');
         return true;
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -831,4 +845,47 @@ async function tryConfigureViaLanguageModels(
 
 export function deactivate() {
     // Cleanup handled by subscriptions
+}
+
+async function showModelEnablementGuide(): Promise<void> {
+    const defaultModels = vscode.workspace
+        .getConfiguration('antigravityCopilot')
+        .get<string[]>('defaultEnabledModels', [
+            'gemini-claude-opus-4-5-thinking',
+            'gemini-3-pro-preview',
+            'gemini-3-flash-preview'
+        ]);
+    
+    const modelNames: Record<string, string> = {
+        'gemini-claude-opus-4-5-thinking': 'Claude Opus 4.5 (Thinking)',
+        'gemini-3-pro-preview': 'Gemini 3 Pro (Preview)',
+        'gemini-3-flash-preview': 'Gemini 3 Flash (Preview)',
+        'gemini-claude-sonnet-4-5-thinking': 'Claude Sonnet 4.5 (Thinking)',
+        'gemini-claude-sonnet-4-5': 'Claude Sonnet 4.5',
+        'gemini-2.5-flash': 'Gemini 2.5 Flash',
+        'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+        'gemini-3-pro-image-preview': 'Gemini 3 Pro Image (Preview)',
+        'gemini-2.5-computer-use-preview-10-2025': 'Gemini 2.5 Computer Use (Preview)',
+        'gpt-oss-120b-medium': 'gpt-oss-120b-medium'
+    };
+    
+    const enabledList = defaultModels
+        .map(id => `• ${modelNames[id] || id}`)
+        .join('\n');
+    
+    const selection = await vscode.window.showInformationMessage(
+        `🎯 Recommended Models to Enable:\n\n${enabledList}\n\n` +
+        `Open Copilot Chat → Manage Models, search for each model, and click the eye icon to enable it.`,
+        { modal: true },
+        'Open Manage Models',
+        'Copy Model Names'
+    );
+
+    if (selection === 'Open Manage Models') {
+        void vscode.commands.executeCommand('workbench.action.chat.openLanguageModelsSettings');
+    } else if (selection === 'Copy Model Names') {
+        const textToCopy = defaultModels.map(id => modelNames[id] || id).join(', ');
+        await vscode.env.clipboard.writeText(textToCopy);
+        void vscode.window.showInformationMessage('Model names copied to clipboard!');
+    }
 }

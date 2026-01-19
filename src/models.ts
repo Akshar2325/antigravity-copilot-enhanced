@@ -30,7 +30,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gemini-claude-sonnet-4-5",
         "toolCalling": true,
-        "vision": false,
+        "vision": true,
         "thinking": false,
         "maxInputTokens": 128000,
         "maxOutputTokens": 4096,
@@ -41,7 +41,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gemini-claude-sonnet-4-5-thinking",
         "toolCalling": true,
-        "vision": false,
+        "vision": true,
         "thinking": true,
         "maxInputTokens": 32000,
         "maxOutputTokens": 2048,
@@ -52,7 +52,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gemini-claude-opus-4-5-thinking",
         "toolCalling": true,
-        "vision": false,
+        "vision": true,
         "thinking": true,
         "maxInputTokens": 32000,
         "maxOutputTokens": 2048,
@@ -85,7 +85,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gemini-3-pro-preview",
         "toolCalling": true,
-        "vision": false,
+        "vision": true,
         "thinking": false,
         "maxInputTokens": 128000,
         "maxOutputTokens": 4096,
@@ -96,7 +96,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gemini-3-flash-preview",
         "toolCalling": true,
-        "vision": false,
+        "vision": true,
         "thinking": false,
         "maxInputTokens": 128000,
         "maxOutputTokens": 4096,
@@ -129,7 +129,7 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
         "url": PLACEHOLDER_URL,
         "model": "gpt-oss-120b-medium",
         "toolCalling": false,
-        "vision": false,
+        "vision": true,
         "thinking": false,
         "maxInputTokens": 128000,
         "maxOutputTokens": 4096,
@@ -138,16 +138,16 @@ export const ANTIGRAVITY_MODELS: Record<string, CopilotModelConfig> = {
 };
 
 export const MODEL_LIST: ModelInfo[] = [
-    { id: "gemini-claude-sonnet-4-5", name: "Claude Sonnet 4.5", toolCalling: true, vision: false, thinking: false },
-    { id: "gemini-claude-sonnet-4-5-thinking", name: "Claude Sonnet 4.5 (Thinking)", toolCalling: true, vision: false, thinking: true },
-    { id: "gemini-claude-opus-4-5-thinking", name: "Claude Opus 4.5 (Thinking)", toolCalling: true, vision: false, thinking: true },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", toolCalling: true, vision: false, thinking: false },
-    { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", toolCalling: true, vision: false, thinking: false },
-    { id: "gemini-3-pro-preview", name: "Gemini 3 Pro (Preview)", toolCalling: true, vision: false, thinking: false },
-    { id: "gemini-3-flash-preview", name: "Gemini 3 Flash (Preview)", toolCalling: true, vision: false, thinking: false },
+    { id: "gemini-claude-sonnet-4-5", name: "Claude Sonnet 4.5", toolCalling: true, vision: true, thinking: false },
+    { id: "gemini-claude-sonnet-4-5-thinking", name: "Claude Sonnet 4.5 (Thinking)", toolCalling: true, vision: true, thinking: true },
+    { id: "gemini-claude-opus-4-5-thinking", name: "Claude Opus 4.5 (Thinking)", toolCalling: true, vision: true, thinking: true },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", toolCalling: true, vision: true, thinking: false },
+    { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", toolCalling: true, vision: true, thinking: false },
+    { id: "gemini-3-pro-preview", name: "Gemini 3 Pro (Preview)", toolCalling: true, vision: true, thinking: false },
+    { id: "gemini-3-flash-preview", name: "Gemini 3 Flash (Preview)", toolCalling: true, vision: true, thinking: false },
     { id: "gemini-3-pro-image-preview", name: "Gemini 3 Pro Image (Preview)", toolCalling: true, vision: true, thinking: false },
     { id: "gemini-2.5-computer-use-preview-10-2025", name: "Gemini 2.5 Computer Use (Preview)", toolCalling: true, vision: true, thinking: false },
-    { id: "gpt-oss-120b-medium", name: "gpt-oss-120b-medium", toolCalling: false, vision: false, thinking: false }
+    { id: "gpt-oss-120b-medium", name: "gpt-oss-120b-medium", toolCalling: false, vision: true, thinking: false }
 ];
 
 interface OpenAIModelsResponse {

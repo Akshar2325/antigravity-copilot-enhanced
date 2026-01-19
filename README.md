@@ -50,13 +50,32 @@
 
 4. **CLIProxyAPI** installed in `%USERPROFILE%\CLIProxyAPI\`
 
+   The extension can automatically download and install the latest version for you when you attempt to start the server. Alternatively, you can install it manually:
+
    ```powershell
    $zipPath = "$env:TEMP\CLIProxyAPI.zip"
    $extractPath = "$env:USERPROFILE\CLIProxyAPI"
-   Invoke-WebRequest -Uri "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.6.103/CLIProxyAPI_6.6.103_windows_amd64.zip" -OutFile $zipPath
+   # Download latest from GitHub
+   Invoke-WebRequest -Uri "https://github.com/router-for-me/CLIProxyAPI/releases/latest/download/CLIProxyAPI_windows_amd64.zip" -OutFile $zipPath
    Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
    Remove-Item $zipPath
    ```
+
+### Model Enablement
+
+After configuring models, you must manually enable them in VS Code:
+
+1. Open Copilot Chat (`Ctrl+Alt+I`)
+2. Click the model picker dropdown
+3. Select **"Manage Models..."**
+4. Enable these recommended models:
+   - **Gemini 3 Pro (Preview)**
+   - **Gemini 3 Flash (Preview)**
+   - **Claude Opus 4.5 (Thinking)**
+5. Click the 👁️ eye icon next to each model to enable it
+
+> Note: Models can only be enabled manually through the VS Code UI. Programmatic enablement is not supported by the current VS Code BYOK API.
+
 
 5. **CLIProxyAPI Configuration**: (Optional) The extension will automatically create a default `config.yaml` if one doesn't exist.
    - Default location: `%USERPROFILE%\CLIProxyAPI\config.yaml`
