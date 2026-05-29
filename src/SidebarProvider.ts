@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AntigravityServer } from "./AntigravityServer";
-import { MODEL_LIST } from "./models";
+import { ModelInfo } from "./models";
 import { RateLimiter } from "./RateLimiter";
 import { ThrottlingProxyServer } from "./ThrottlingProxyServer";
 
@@ -15,6 +15,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private readonly _getServer: () => AntigravityServer,
     private readonly _getRateLimiter?: () => RateLimiter | undefined,
     private readonly _getProxyServer?: () => ThrottlingProxyServer | undefined,
+    private readonly _getRegisteredModels?: () => ModelInfo[],
   ) {
     this._server = _getServer();
   }
@@ -447,19 +448,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       }
 
     <div class="card">
-        <h3>🤖 Available Models (10)</h3>
-        <div class="model-list">
-            ${MODEL_LIST.map(
-        (model) => `
-                <div class="model-item">
-                    <span class="model-name">${model.name}</span>
-                    ${model.toolCalling ? '<span class="model-badge badge-tool">Tools</span>' : ""}
-                    ${model.vision ? '<span class="model-badge badge-vision">Vision</span>' : ""}
-                    ${model.thinking ? '<span class="model-badge badge-thinking">Thinking</span>' : ""}
-                </div>
-            `,
-      ).join("")}
-        </div>
+        ${(() => {
+          const models = this._getRegisteredModels?.() ?? [];
+          if (models.length === 0) {
+            return `
+              <h3>🤖 Available Models (0)</h3>
+              <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 8px; text-align: center;">
+                No models configured yet.<br>Start the server and click <strong>Configure Models</strong> above.
+              </div>
+            `;
+          }
+          return `
+            <h3>🤖 Available Models (${models.length})</h3>
+            <div class="model-list">
+                ${models.map(
+                  (model) => `
+                    <div class="model-item">
+                        <span class="model-name">${model.name}</span>
+                        ${model.toolCalling ? '<span class="model-badge badge-tool">Tools</span>' : ""}
+                        ${model.vision ? '<span class="model-badge badge-vision">Vision</span>' : ""}
+                        ${model.thinking ? '<span class="model-badge badge-thinking">Thinking</span>' : ""}
+                    </div>
+                  `
+                ).join("")}
+            </div>
+          `;
+        })()}
     </div>
 
     <div class="card">

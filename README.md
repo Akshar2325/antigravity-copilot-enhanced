@@ -71,26 +71,18 @@ VS Code Copilot Chat
 
 ---
 
-## 🤖 Available Models
+## 🤖 Dynamic Model Auto-Discovery
 
-| Model ID | Name | Tools | Vision | Thinking | Context |
-|---|---|:---:|:---:|:---:|---|
-| `gemini-3-flash` | Gemini 3 Flash | ✅ | ✅ | ❌ | 1M |
-| `gemini-3-flash-agent` | Gemini 3 Flash Agent | ✅ | ✅ | ❌ | 1M |
-| `gemini-3-pro-low` | Gemini 3 Pro Low | ✅ | ✅ | ❌ | 2M |
-| `gemini-3-pro-high` | Gemini 3 Pro High | ✅ | ✅ | ❌ | 2M |
-| `gemini-pro-agent` | Gemini Pro Agent | ✅ | ✅ | ❌ | 2M |
-| `gemini-3.1-pro-low` | Gemini 3.1 Pro Low | ✅ | ❌ | ❌ | 2M |
-| `gemini-3.1-flash-image` | Gemini 3.1 Flash Image | ✅ | ✅ | ❌ | 1M |
-| `gemini-3.1-flash-lite` | Gemini 3.1 Flash Lite | ✅ | ✅ | ❌ | 1M |
-| `gemini-3.5-flash-low` | Gemini 3.5 Flash Low | ✅ | ✅ | ❌ | 1M |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6 | ✅ | ✅ | ❌ | 200K |
-| `claude-opus-4-6-thinking` | Claude Opus 4.6 (Thinking) | ✅ | ✅ | ✅ | 32K* |
-| `gpt-oss-120b-medium` | GPT-OSS 120B (Medium) | ❌ | ✅ | ❌ | 128K |
+There are **no hardcoded model configurations or static lists** in the extension. Instead, it is 100% future-proof:
 
-> **\*** Thinking models use a conservative 32K context cap to avoid upstream quota exhaustion. The proxy enforces this automatically.
+1. **Auto-Discovery**: On start, the extension calls `GET /v1/models` on the running CLIProxyAPI to dynamically fetch all available models.
+2. **Capability Inference**: It automatically determines model features and limits based on its ID:
+   - **Tools**: Enabled (`true`) for all models automatically.
+   - **Vision**: Enabled for Claude/Gemini/vision models; disabled (`false`) for GPT-OSS models.
+   - **Thinking**: Enabled (`true`) for Claude 4.6 and reasoning models (IDs containing `thinking`, `sonnet-4-6`, `opus-4-6`).
+   - **Context Window**: Standard models get **128K** inputs and **16K** outputs. Thinking models get a conservative **32K** inputs and **2K** outputs to prevent massive generations from instantly exhausting rate-limit quotas.
 
-> **Dynamic fetching:** The extension calls `GET /v1/models` on the CLIProxyAPI at startup. If a model returned by the server is in `ANTIGRAVITY_MODELS`, it uses the curated spec (correct token limits, vision flags, etc.). Otherwise it infers capabilities from the model ID name.
+This means if Antigravity adds new models in the future, they will immediately show up and work in Copilot without needing an extension update!
 
 ---
 

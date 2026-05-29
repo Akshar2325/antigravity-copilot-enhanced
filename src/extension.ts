@@ -4,11 +4,13 @@ import * as path from "path";
 import { AntigravityServer } from "./AntigravityServer";
 import { SidebarProvider } from "./SidebarProvider";
 import {
-    ANTIGRAVITY_MODELS,
     CopilotModelConfig,
     fetchModelsFromServer,
+    formatModelName,
 } from "./models";
 import { RateLimiter } from "./RateLimiter";
+
+let lastRegisteredModels: Record<string, CopilotModelConfig> = {};
 import {
     ThrottlingProxyServer,
     ThrottlingProxyConfig,
@@ -157,6 +159,13 @@ export function activate(context: vscode.ExtensionContext) {
         getServer,
         getRateLimiter,
         getProxyServer,
+        () => Object.values(lastRegisteredModels).map(m => ({
+            id: m.model,
+            name: m.name.replace("Antigravity: ", ""),
+            toolCalling: m.toolCalling,
+            vision: m.vision,
+            thinking: m.thinking
+        }))
     );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -551,16 +560,19 @@ async function configureAntigravityModels(
                 );
             }
         } catch (fetchError) {
-            // Fallback to static models if server is not available
+            // Fallback to empty if server is not available
             const message =
                 fetchError instanceof Error ? fetchError.message : String(fetchError);
             if (!silent) {
                 vscode.window.showWarningMessage(
-                    `Could not fetch models from server (${message}). Using default models.`,
+                    `Could not fetch models from server (${message}). Please start the server.`,
                 );
             }
-            models = ANTIGRAVITY_MODELS;
+            models = {};
         }
+
+        // Cache the dynamically fetched models
+        lastRegisteredModels = models;
 
         // Ensure all configured model URLs point at the chosen base URL (direct or proxy).
         models = rewriteModelUrls(models, baseUrl);
@@ -902,6 +914,7 @@ async function updateOrCreateProviderGroup(
         type ProviderGroup = {
             name: string;
             vendor: string;
+            apiType?: string;
             models: Array<{
                 id: string;
                 name: string;
@@ -948,6 +961,8 @@ async function updateOrCreateProviderGroup(
 
         if (existingGroupIndex >= 0) {
             // Update existing group
+            providerGroups[existingGroupIndex].vendor = "customendpoint";
+            providerGroups[existingGroupIndex].apiType = "chat-completions";
             providerGroups[existingGroupIndex].models = modelConfigs;
             outputChannel?.appendLine(
                 `[INFO] Updated existing provider group '${providerGroupName}' with ${modelConfigs.length} models`,
@@ -956,7 +971,8 @@ async function updateOrCreateProviderGroup(
             // Create new group
             providerGroups.push({
                 name: providerGroupName,
-                vendor: "customoai",
+                vendor: "customendpoint",
+                apiType: "chat-completions",
                 models: modelConfigs,
             });
             outputChannel?.appendLine(
@@ -989,7 +1005,7 @@ async function tryConfigureViaLanguageModels(
     // This command is provided by VS Code’s Language Models infrastructure.
     // It is used by Copilot Chat’s BYOK providers to configure provider groups.
     const commandId = "lm.migrateLanguageModelsProviderGroup";
-    const providerVendor = "customoai"; // "OpenAI Compatible" provider in Copilot Chat
+    const providerVendor = "customendpoint"; // "OpenAI Compatible" provider in Copilot Chat
     // Provider group name is user-visible and can be anything.
     // We default to 'Antigravity' to avoid overwriting other groups.
     const groupName = options.providerGroupName?.trim() || "Antigravity";
@@ -1009,6 +1025,7 @@ async function tryConfigureViaLanguageModels(
         await vscode.commands.executeCommand(commandId, {
             vendor: providerVendor,
             name: groupName,
+            apiType: "chat-completions",
             models: modelConfigs,
             // No apiKey required for local OpenAI-compatible endpoints (Copilot Chat accepts empty).
         });
@@ -1063,23 +1080,8 @@ async function showModelEnablementGuide(): Promise<void> {
             string[]
         >("defaultEnabledModels", ["gemini-3-pro-high", "gemini-3-flash-agent", "claude-opus-4-6-thinking"]);
 
-    const modelNames: Record<string, string> = {
-        "gemini-3-flash": "Gemini 3 Flash",
-        "gemini-3-flash-agent": "Gemini 3 Flash Agent",
-        "gemini-3-pro-low": "Gemini 3 Pro Low",
-        "gemini-3-pro-high": "Gemini 3 Pro High",
-        "gemini-pro-agent": "Gemini Pro Agent",
-        "gemini-3.1-pro-low": "Gemini 3.1 Pro Low",
-        "gemini-3.1-flash-image": "Gemini 3.1 Flash Image",
-        "gemini-3.1-flash-lite": "Gemini 3.1 Flash Lite",
-        "gemini-3.5-flash-low": "Gemini 3.5 Flash Low",
-        "claude-sonnet-4-6": "Claude Sonnet 4.6",
-        "claude-opus-4-6-thinking": "Claude Opus 4.6 (Thinking)",
-        "gpt-oss-120b-medium": "GPT-OSS 120B (Medium)",
-    };
-
     const enabledList = defaultModels
-        .map((id) => `• ${modelNames[id] || id}`)
+        .map((id) => `• ${formatModelName(id)}`)
         .join("\n");
 
     const selection = await vscode.window.showInformationMessage(
@@ -1096,7 +1098,7 @@ async function showModelEnablementGuide(): Promise<void> {
         );
     } else if (selection === "Copy Model Names") {
         const textToCopy = defaultModels
-            .map((id) => modelNames[id] || id)
+            .map((id) => formatModelName(id))
             .join(", ");
         await vscode.env.clipboard.writeText(textToCopy);
         void vscode.window.showInformationMessage(
