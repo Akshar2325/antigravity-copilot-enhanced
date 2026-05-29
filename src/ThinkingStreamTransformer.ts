@@ -1,19 +1,19 @@
-import { Transform, TransformCallback } from 'stream';
+import { Transform, TransformCallback } from "stream";
 
 /**
  * Transforms OpenAI-compatible SSE streaming responses to inject thinking content
  * in a format that VS Code Copilot BYOK can recognize and display.
- * 
+ *
  * The upstream CLIProxyAPI returns reasoning tokens as `reasoning_content` in the delta:
  *   {"choices":[{"delta":{"reasoning_content":"thinking text..."}}]}
- * 
+ *
  * This transformer:
  * 1. Detects `reasoning_content` in streaming chunks
  * 2. Emits special SSE events that VS Code can render as collapsible thinking blocks
  * 3. Maintains proper SSE formatting throughout
  */
 export class ThinkingStreamTransformer extends Transform {
-    private buffer = '';
+    private buffer = "";
     private thinkingActive = false;
     private thinkingIndex = 0;
     private contentIndex = 1;
@@ -22,7 +22,7 @@ export class ThinkingStreamTransformer extends Transform {
 
     constructor(
         private readonly modelName?: string,
-        private readonly debug?: (msg: string) => void
+        private readonly debug?: (msg: string) => void,
     ) {
         super();
     }
@@ -33,14 +33,18 @@ export class ThinkingStreamTransformer extends Transform {
         }
     }
 
-    _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback,
+    ): void {
         try {
-            this.buffer += chunk.toString('utf8');
+            this.buffer += chunk.toString("utf8");
             const results: string[] = [];
 
             // Process complete SSE lines
             let lineEnd: number;
-            while ((lineEnd = this.buffer.indexOf('\n\n')) !== -1) {
+            while ((lineEnd = this.buffer.indexOf("\n\n")) !== -1) {
                 const line = this.buffer.slice(0, lineEnd);
                 this.buffer = this.buffer.slice(lineEnd + 2);
 
@@ -51,10 +55,13 @@ export class ThinkingStreamTransformer extends Transform {
             }
 
             // Also handle single newline separators
-            while ((lineEnd = this.buffer.indexOf('\n')) !== -1 && !this.buffer.startsWith('data:')) {
+            while (
+                (lineEnd = this.buffer.indexOf("\n")) !== -1 &&
+                !this.buffer.startsWith("data:")
+            ) {
                 const line = this.buffer.slice(0, lineEnd);
                 this.buffer = this.buffer.slice(lineEnd + 1);
-                
+
                 if (line.trim()) {
                     const transformed = this.processSSELine(line);
                     if (transformed) {
@@ -64,7 +71,7 @@ export class ThinkingStreamTransformer extends Transform {
             }
 
             if (results.length > 0) {
-                this.push(results.join(''));
+                this.push(results.join(""));
             }
             callback();
         } catch (error) {
@@ -91,19 +98,19 @@ export class ThinkingStreamTransformer extends Transform {
 
     private processSSELine(line: string): string | null {
         // Handle [DONE] marker
-        if (line.includes('[DONE]')) {
-            return line.endsWith('\n\n') ? line : line + '\n\n';
+        if (line.includes("[DONE]")) {
+            return line.endsWith("\n\n") ? line : line + "\n\n";
         }
 
         // Extract data from SSE line
         const dataMatch = line.match(/^data:\s*(.+)$/m);
         if (!dataMatch) {
-            return line.endsWith('\n\n') ? line : line + '\n\n';
+            return line.endsWith("\n\n") ? line : line + "\n\n";
         }
 
         const dataStr = dataMatch[1].trim();
-        if (!dataStr || dataStr === '[DONE]') {
-            return line.endsWith('\n\n') ? line : line + '\n\n';
+        if (!dataStr || dataStr === "[DONE]") {
+            return line.endsWith("\n\n") ? line : line + "\n\n";
         }
 
         try {
@@ -120,13 +127,23 @@ export class ThinkingStreamTransformer extends Transform {
             const regularContent = delta.content;
 
             // Handle reasoning_content (thinking)
-            if (reasoningContent !== undefined && reasoningContent !== null && reasoningContent !== '') {
-                this.log(`Found reasoning_content in chunk ${this.chunkCounter}: ${reasoningContent.slice(0, 50)}...`);
+            if (
+                reasoningContent !== undefined &&
+                reasoningContent !== null &&
+                reasoningContent !== ""
+            ) {
+                this.log(
+                    `Found reasoning_content in chunk ${this.chunkCounter}: ${reasoningContent.slice(0, 50)}...`,
+                );
                 return this.emitThinkingContent(data, reasoningContent);
             }
 
             // Handle regular content - need to close thinking block first if active
-            if (regularContent !== undefined && regularContent !== null && regularContent !== '') {
+            if (
+                regularContent !== undefined &&
+                regularContent !== null &&
+                regularContent !== ""
+            ) {
                 if (this.thinkingActive) {
                     this.thinkingActive = false;
                     // Transition from thinking to content
@@ -137,7 +154,7 @@ export class ThinkingStreamTransformer extends Transform {
             return this.formatSSE(data);
         } catch (parseError) {
             this.log(`JSON parse error: ${parseError}`);
-            return line.endsWith('\n\n') ? line : line + '\n\n';
+            return line.endsWith("\n\n") ? line : line + "\n\n";
         }
     }
 
@@ -147,7 +164,7 @@ export class ThinkingStreamTransformer extends Transform {
         // If this is the first thinking chunk, emit a thinking block start indicator
         if (!this.thinkingActive) {
             this.thinkingActive = true;
-            this.log('Starting thinking block');
+            this.log("Starting thinking block");
         }
 
         // Create a modified chunk that includes thinking as a special annotation
@@ -155,10 +172,10 @@ export class ThinkingStreamTransformer extends Transform {
         // We'll emit it both as reasoning_content (for compatible clients) and
         // in a way that can be detected by the client
         const modifiedData = JSON.parse(JSON.stringify(originalData));
-        
+
         // Keep reasoning_content for clients that understand it
         modifiedData.choices[0].delta.reasoning_content = thinking;
-        
+
         // Add a special marker that our extension or compatible clients can detect
         // Some clients look for 'thinking' in delta
         modifiedData.choices[0].delta._thinking = thinking;
@@ -166,7 +183,7 @@ export class ThinkingStreamTransformer extends Transform {
 
         results.push(this.formatSSE(modifiedData));
 
-        return results.join('');
+        return results.join("");
     }
 
     private emitContentAfterThinking(originalData: any): string {
@@ -175,14 +192,14 @@ export class ThinkingStreamTransformer extends Transform {
         // Emit a marker that thinking has ended
         const thinkingEndMarker = JSON.parse(JSON.stringify(originalData));
         thinkingEndMarker.choices[0].delta = {
-            _thinking_end: true
+            _thinking_end: true,
         };
         results.push(this.formatSSE(thinkingEndMarker));
 
         // Then emit the regular content
         results.push(this.formatSSE(originalData));
 
-        return results.join('');
+        return results.join("");
     }
 
     private formatSSE(data: any): string {
@@ -193,7 +210,7 @@ export class ThinkingStreamTransformer extends Transform {
 /**
  * Alternative transformer that converts OpenAI streaming format to Claude/Anthropic
  * streaming format. This is more compatible with VS Code's internal handling.
- * 
+ *
  * Claude streaming format uses:
  * - event: message_start
  * - event: content_block_start (with type: "thinking" for reasoning)
@@ -203,19 +220,19 @@ export class ThinkingStreamTransformer extends Transform {
  * - event: message_stop
  */
 export class OpenAIToClaudeStreamTransformer extends Transform {
-    private buffer = '';
+    private buffer = "";
     private messageStarted = false;
     private thinkingBlockStarted = false;
     private textBlockStarted = false;
     private thinkingBlockIndex = 0;
     private textBlockIndex = 1;
     private messageId = `msg_${Date.now()}`;
-    private accumulatedThinking = '';
-    private accumulatedContent = '';
+    private accumulatedThinking = "";
+    private accumulatedContent = "";
 
     constructor(
         private readonly modelName?: string,
-        private readonly debug?: (msg: string) => void
+        private readonly debug?: (msg: string) => void,
     ) {
         super();
     }
@@ -226,14 +243,18 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
         }
     }
 
-    _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback,
+    ): void {
         try {
-            this.buffer += chunk.toString('utf8');
+            this.buffer += chunk.toString("utf8");
             const results: string[] = [];
 
             // Process complete SSE lines
             let lineEnd: number;
-            while ((lineEnd = this.buffer.indexOf('\n\n')) !== -1) {
+            while ((lineEnd = this.buffer.indexOf("\n\n")) !== -1) {
                 const line = this.buffer.slice(0, lineEnd);
                 this.buffer = this.buffer.slice(lineEnd + 2);
 
@@ -244,7 +265,7 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
             }
 
             if (results.length > 0) {
-                this.push(results.join(''));
+                this.push(results.join(""));
             }
             callback();
         } catch (error) {
@@ -258,30 +279,38 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
 
         // Close any open blocks
         if (this.thinkingBlockStarted) {
-            results.push(this.formatClaudeEvent('content_block_stop', { 
-                type: 'content_block_stop', 
-                index: this.thinkingBlockIndex 
-            }));
+            results.push(
+                this.formatClaudeEvent("content_block_stop", {
+                    type: "content_block_stop",
+                    index: this.thinkingBlockIndex,
+                }),
+            );
         }
         if (this.textBlockStarted) {
-            results.push(this.formatClaudeEvent('content_block_stop', { 
-                type: 'content_block_stop', 
-                index: this.textBlockIndex 
-            }));
+            results.push(
+                this.formatClaudeEvent("content_block_stop", {
+                    type: "content_block_stop",
+                    index: this.textBlockIndex,
+                }),
+            );
         }
 
         // Emit message stop if we started
         if (this.messageStarted) {
-            results.push(this.formatClaudeEvent('message_delta', {
-                type: 'message_delta',
-                delta: { stop_reason: 'end_turn', stop_sequence: null },
-                usage: { output_tokens: 0 }
-            }));
-            results.push(this.formatClaudeEvent('message_stop', { type: 'message_stop' }));
+            results.push(
+                this.formatClaudeEvent("message_delta", {
+                    type: "message_delta",
+                    delta: { stop_reason: "end_turn", stop_sequence: null },
+                    usage: { output_tokens: 0 },
+                }),
+            );
+            results.push(
+                this.formatClaudeEvent("message_stop", { type: "message_stop" }),
+            );
         }
 
         if (results.length > 0) {
-            this.push(results.join(''));
+            this.push(results.join(""));
         }
 
         if (this.buffer.trim()) {
@@ -293,7 +322,7 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
 
     private processSSEChunk(line: string): string | null {
         // Handle [DONE] marker
-        if (line.includes('[DONE]')) {
+        if (line.includes("[DONE]")) {
             return null; // We'll emit proper Claude stop events in _flush
         }
 
@@ -303,7 +332,7 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
         }
 
         const dataStr = dataMatch[1].trim();
-        if (!dataStr || dataStr === '[DONE]') {
+        if (!dataStr || dataStr === "[DONE]") {
             return null;
         }
 
@@ -322,78 +351,94 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
         // Emit message_start on first chunk
         if (!this.messageStarted) {
             this.messageStarted = true;
-            results.push(this.formatClaudeEvent('message_start', {
-                type: 'message_start',
-                message: {
-                    id: this.messageId,
-                    type: 'message',
-                    role: 'assistant',
-                    model: this.modelName || data?.model || 'unknown',
-                    content: [],
-                    stop_reason: null,
-                    stop_sequence: null,
-                    usage: { input_tokens: 0, output_tokens: 0 }
-                }
-            }));
+            results.push(
+                this.formatClaudeEvent("message_start", {
+                    type: "message_start",
+                    message: {
+                        id: this.messageId,
+                        type: "message",
+                        role: "assistant",
+                        model: this.modelName || data?.model || "unknown",
+                        content: [],
+                        stop_reason: null,
+                        stop_sequence: null,
+                        usage: { input_tokens: 0, output_tokens: 0 },
+                    },
+                }),
+            );
         }
 
         const delta = data?.choices?.[0]?.delta;
         if (!delta) {
-            return results.join('');
+            return results.join("");
         }
 
         const reasoningContent = delta.reasoning_content;
         const content = delta.content;
 
         // Handle reasoning_content -> thinking blocks
-        if (reasoningContent !== undefined && reasoningContent !== null && reasoningContent !== '') {
+        if (
+            reasoningContent !== undefined &&
+            reasoningContent !== null &&
+            reasoningContent !== ""
+        ) {
             // Start thinking block if not started
             if (!this.thinkingBlockStarted) {
                 this.thinkingBlockStarted = true;
-                results.push(this.formatClaudeEvent('content_block_start', {
-                    type: 'content_block_start',
-                    index: this.thinkingBlockIndex,
-                    content_block: { type: 'thinking', thinking: '' }
-                }));
+                results.push(
+                    this.formatClaudeEvent("content_block_start", {
+                        type: "content_block_start",
+                        index: this.thinkingBlockIndex,
+                        content_block: { type: "thinking", thinking: "" },
+                    }),
+                );
             }
 
             // Emit thinking delta
             this.accumulatedThinking += reasoningContent;
-            results.push(this.formatClaudeEvent('content_block_delta', {
-                type: 'content_block_delta',
-                index: this.thinkingBlockIndex,
-                delta: { type: 'thinking_delta', thinking: reasoningContent }
-            }));
+            results.push(
+                this.formatClaudeEvent("content_block_delta", {
+                    type: "content_block_delta",
+                    index: this.thinkingBlockIndex,
+                    delta: { type: "thinking_delta", thinking: reasoningContent },
+                }),
+            );
         }
 
         // Handle content -> text blocks
-        if (content !== undefined && content !== null && content !== '') {
+        if (content !== undefined && content !== null && content !== "") {
             // Close thinking block first if open
             if (this.thinkingBlockStarted && !this.textBlockStarted) {
-                results.push(this.formatClaudeEvent('content_block_stop', {
-                    type: 'content_block_stop',
-                    index: this.thinkingBlockIndex
-                }));
+                results.push(
+                    this.formatClaudeEvent("content_block_stop", {
+                        type: "content_block_stop",
+                        index: this.thinkingBlockIndex,
+                    }),
+                );
                 this.thinkingBlockStarted = false;
             }
 
             // Start text block if not started
             if (!this.textBlockStarted) {
                 this.textBlockStarted = true;
-                results.push(this.formatClaudeEvent('content_block_start', {
-                    type: 'content_block_start',
-                    index: this.textBlockIndex,
-                    content_block: { type: 'text', text: '' }
-                }));
+                results.push(
+                    this.formatClaudeEvent("content_block_start", {
+                        type: "content_block_start",
+                        index: this.textBlockIndex,
+                        content_block: { type: "text", text: "" },
+                    }),
+                );
             }
 
             // Emit text delta
             this.accumulatedContent += content;
-            results.push(this.formatClaudeEvent('content_block_delta', {
-                type: 'content_block_delta',
-                index: this.textBlockIndex,
-                delta: { type: 'text_delta', text: content }
-            }));
+            results.push(
+                this.formatClaudeEvent("content_block_delta", {
+                    type: "content_block_delta",
+                    index: this.textBlockIndex,
+                    delta: { type: "text_delta", text: content },
+                }),
+            );
         }
 
         // Handle finish reason
@@ -401,31 +446,42 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
         if (finishReason) {
             // Close any open blocks
             if (this.thinkingBlockStarted) {
-                results.push(this.formatClaudeEvent('content_block_stop', {
-                    type: 'content_block_stop',
-                    index: this.thinkingBlockIndex
-                }));
+                results.push(
+                    this.formatClaudeEvent("content_block_stop", {
+                        type: "content_block_stop",
+                        index: this.thinkingBlockIndex,
+                    }),
+                );
                 this.thinkingBlockStarted = false;
             }
             if (this.textBlockStarted) {
-                results.push(this.formatClaudeEvent('content_block_stop', {
-                    type: 'content_block_stop',
-                    index: this.textBlockIndex
-                }));
+                results.push(
+                    this.formatClaudeEvent("content_block_stop", {
+                        type: "content_block_stop",
+                        index: this.textBlockIndex,
+                    }),
+                );
                 this.textBlockStarted = false;
             }
 
             // Emit message delta with stop reason
-            results.push(this.formatClaudeEvent('message_delta', {
-                type: 'message_delta',
-                delta: { stop_reason: this.mapFinishReason(finishReason), stop_sequence: null },
-                usage: data?.usage || { output_tokens: 0 }
-            }));
+            results.push(
+                this.formatClaudeEvent("message_delta", {
+                    type: "message_delta",
+                    delta: {
+                        stop_reason: this.mapFinishReason(finishReason),
+                        stop_sequence: null,
+                    },
+                    usage: data?.usage || { output_tokens: 0 },
+                }),
+            );
 
-            results.push(this.formatClaudeEvent('message_stop', { type: 'message_stop' }));
+            results.push(
+                this.formatClaudeEvent("message_stop", { type: "message_stop" }),
+            );
         }
 
-        return results.join('');
+        return results.join("");
     }
 
     private formatClaudeEvent(event: string, data: any): string {
@@ -434,10 +490,14 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
 
     private mapFinishReason(openaiReason: string): string {
         switch (openaiReason) {
-            case 'stop': return 'end_turn';
-            case 'length': return 'max_tokens';
-            case 'tool_calls': return 'tool_use';
-            default: return 'end_turn';
+            case "stop":
+                return "end_turn";
+            case "length":
+                return "max_tokens";
+            case "tool_calls":
+                return "tool_use";
+            default:
+                return "end_turn";
         }
     }
 }
@@ -448,12 +508,12 @@ export class OpenAIToClaudeStreamTransformer extends Transform {
  * OpenAI compatibility while adding metadata hints.
  */
 export class ReasoningAnnotatorTransformer extends Transform {
-    private buffer = '';
+    private buffer = "";
     private hasSeenReasoning = false;
 
     constructor(
         private readonly modelName?: string,
-        private readonly debug?: (msg: string) => void
+        private readonly debug?: (msg: string) => void,
     ) {
         super();
     }
@@ -464,14 +524,18 @@ export class ReasoningAnnotatorTransformer extends Transform {
         }
     }
 
-    _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback,
+    ): void {
         try {
-            this.buffer += chunk.toString('utf8');
+            this.buffer += chunk.toString("utf8");
             const results: string[] = [];
 
             // Process complete SSE lines
             let lineEnd: number;
-            while ((lineEnd = this.buffer.indexOf('\n\n')) !== -1) {
+            while ((lineEnd = this.buffer.indexOf("\n\n")) !== -1) {
                 const line = this.buffer.slice(0, lineEnd);
                 this.buffer = this.buffer.slice(lineEnd + 2);
 
@@ -480,7 +544,7 @@ export class ReasoningAnnotatorTransformer extends Transform {
             }
 
             if (results.length > 0) {
-                this.push(results.join(''));
+                this.push(results.join(""));
             }
             callback();
         } catch (error) {
@@ -499,12 +563,12 @@ export class ReasoningAnnotatorTransformer extends Transform {
     private processLine(line: string): string {
         const dataMatch = line.match(/^data:\s*(.+)$/m);
         if (!dataMatch) {
-            return line + '\n\n';
+            return line + "\n\n";
         }
 
         const dataStr = dataMatch[1].trim();
-        if (!dataStr || dataStr === '[DONE]') {
-            return line + '\n\n';
+        if (!dataStr || dataStr === "[DONE]") {
+            return line + "\n\n";
         }
 
         try {
@@ -514,7 +578,7 @@ export class ReasoningAnnotatorTransformer extends Transform {
             if (delta?.reasoning_content) {
                 if (!this.hasSeenReasoning) {
                     this.hasSeenReasoning = true;
-                    this.log('First reasoning content detected');
+                    this.log("First reasoning content detected");
                 }
                 // Annotate the delta with thinking markers
                 delta._is_thinking = true;
@@ -522,7 +586,7 @@ export class ReasoningAnnotatorTransformer extends Transform {
 
             return `data: ${JSON.stringify(data)}\n\n`;
         } catch {
-            return line + '\n\n';
+            return line + "\n\n";
         }
     }
 }

@@ -77,17 +77,17 @@ export class AntigravityServer implements vscode.Disposable {
     private ensureConfigExists(portOverride?: number): void {
         const configPath = this.getConfigPath();
         const portToUse = portOverride ?? this.config.port;
-        
+
         // If config exists, we may need to update the port
         if (fs.existsSync(configPath)) {
             this.logInfo(`Config file found at: ${configPath}`);
-            
+
             // Always ensure config file has the correct port we intend to use
             try {
                 let content = fs.readFileSync(configPath, 'utf8');
                 const portMatch = content.match(/^port:\s*(\d+)/m);
                 const currentFilePort = portMatch ? parseInt(portMatch[1], 10) : undefined;
-                
+
                 if (currentFilePort !== portToUse) {
                     // Update port in existing config
                     content = content.replace(/^port:\s*\d+/m, `port: ${portToUse}`);
@@ -197,7 +197,7 @@ providers:
                         );
                     }
                 );
-                
+
                 if (result.success) {
                     if (result.executablePath) {
                         await this.updateServerConfig({ executablePath: result.executablePath });
@@ -500,7 +500,7 @@ providers:
                         );
                     }
                 );
-                
+
                 if (result.success) {
                     if (result.executablePath) {
                         await this.updateServerConfig({ executablePath: result.executablePath });
@@ -584,28 +584,53 @@ providers:
                 'The Antigravity server must be stopped to perform login. Stop server now?',
                 'Yes', 'No'
             );
-            
+
             if (selection !== 'Yes') {
                 return;
             }
-            
+
             await this.stop();
         }
 
+        // Detect whether the integrated terminal is PowerShell or cmd.exe.
+        // The `&` call operator is PowerShell-only — cmd.exe treats it as a
+        // command separator and fails with "& was unexpected at this time."
+        const shellConfig = vscode.workspace.getConfiguration('terminal.integrated');
+        const defaultProfile: string =
+            shellConfig.get<string>('defaultProfile.windows') ??
+            shellConfig.get<string>('shell.windows') ?? '';
+        const isPowerShell = /powershell|pwsh/i.test(defaultProfile) ||
+            (defaultProfile === '' && process.platform === 'win32' && this.isPowerShellAvailable());
+
+        const exePath = this.config.executablePath;
+        const loginCmd = isPowerShell
+            ? `& "${exePath}" --antigravity-login`
+            : `"${exePath}" --antigravity-login`;
+
         const terminal = vscode.window.createTerminal({
             name: 'Antigravity Login',
-            cwd: path.dirname(this.config.executablePath),
+            cwd: path.dirname(exePath),
             hideFromUser: false
         });
 
         terminal.show();
-        // Use & call operator for PowerShell to execute quoted paths
-        terminal.sendText(`& "${this.config.executablePath}" --antigravity-login`);
+        terminal.sendText(loginCmd);
 
         vscode.window.showInformationMessage(
             'Follow the instructions in the terminal to login to Antigravity',
             'OK'
         );
+    }
+
+    /** Returns true if PowerShell (powershell.exe or pwsh.exe) is available on PATH. */
+    private isPowerShellAvailable(): boolean {
+        try {
+            const { execSync } = require('child_process') as typeof import('child_process');
+            execSync('powershell.exe -NoProfile -Command "exit 0"', { stdio: 'ignore', timeout: 2000 });
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     private async updateServerConfig(updates: Partial<ServerConfig>): Promise<void> {

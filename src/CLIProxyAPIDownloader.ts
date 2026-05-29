@@ -36,7 +36,8 @@ async function fetchLatestRelease(): Promise<GitHubRelease> {
 
             if (res.statusCode === 403) {
                 const remaining = res.headers['x-ratelimit-remaining'];
-                const reset = res.headers['x-ratelimit-reset'];
+                const resetHeader = res.headers['x-ratelimit-reset'];
+                const reset = Array.isArray(resetHeader) ? resetHeader[0] : resetHeader;
                 const resetTime = reset ? new Date(parseInt(reset, 10) * 1000).toLocaleTimeString() : 'unknown';
                 reject(new Error(`GitHub API rate limit exceeded. Remaining: ${remaining}, Reset at: ${resetTime}`));
                 return;
@@ -91,7 +92,7 @@ async function downloadFile(url: string, dest: string, onProgress: (percent: num
                 if (redirectUrl) {
                     response.destroy();
                     file.close();
-                    fs.unlink(dest, () => {});
+                    fs.unlink(dest, () => { });
                     downloadFile(redirectUrl, dest, onProgress).then(resolve).catch(reject);
                     return;
                 }
@@ -100,7 +101,7 @@ async function downloadFile(url: string, dest: string, onProgress: (percent: num
             if (response.statusCode !== 200) {
                 response.resume();
                 file.close();
-                fs.unlink(dest, () => {});
+                fs.unlink(dest, () => { });
                 reject(new Error(`Server returned status ${response.statusCode}`));
                 return;
             }
@@ -116,7 +117,7 @@ async function downloadFile(url: string, dest: string, onProgress: (percent: num
                 timeoutTimer = setTimeout(() => {
                     request.destroy();
                     file.close();
-                    fs.unlink(dest, () => {});
+                    fs.unlink(dest, () => { });
                     reject(new Error('Download timeout'));
                 }, timeout);
             };
@@ -143,14 +144,14 @@ async function downloadFile(url: string, dest: string, onProgress: (percent: num
         });
 
         request.on('error', (err) => {
-            fs.unlink(dest, () => {});
+            fs.unlink(dest, () => { });
             reject(err);
         });
 
         request.setTimeout(timeout, () => {
             request.destroy();
             file.close();
-            fs.unlink(dest, () => {});
+            fs.unlink(dest, () => { });
             reject(new Error('Download request timeout'));
         });
     });
@@ -204,7 +205,7 @@ async function extractZip(zipPath: string, targetDir: string): Promise<void> {
                         readStream.on('error', (err) => {
                             writeStream.destroy();
                             closeZipFile();
-                            fs.unlink(entryPath, () => {});
+                            fs.unlink(entryPath, () => { });
                             reject(err);
                         });
                         readStream.pipe(writeStream);
@@ -213,7 +214,7 @@ async function extractZip(zipPath: string, targetDir: string): Promise<void> {
                         });
                         writeStream.on('error', (err) => {
                             closeZipFile();
-                            fs.unlink(entryPath, () => {});
+                            fs.unlink(entryPath, () => { });
                             reject(err);
                         });
                     });

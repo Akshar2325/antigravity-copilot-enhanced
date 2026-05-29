@@ -1,134 +1,162 @@
-import * as vscode from 'vscode';
-import { AntigravityServer } from './AntigravityServer';
-import { MODEL_LIST } from './models';
-import { RateLimiter } from './RateLimiter';
-import { ThrottlingProxyServer } from './ThrottlingProxyServer';
+import * as vscode from "vscode";
+import { AntigravityServer } from "./AntigravityServer";
+import { MODEL_LIST } from "./models";
+import { RateLimiter } from "./RateLimiter";
+import { ThrottlingProxyServer } from "./ThrottlingProxyServer";
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'antigravity-copilot.sidebarView';
-    private _view?: vscode.WebviewView;
-    private _server: AntigravityServer;
-    private _updateInterval?: NodeJS.Timeout;
+  public static readonly viewType = "antigravity-copilot.sidebarView";
+  private _view?: vscode.WebviewView;
+  private _server: AntigravityServer;
+  private _updateInterval?: NodeJS.Timeout;
 
-    constructor(
-        private readonly _extensionUri: vscode.Uri,
-        private readonly _getServer: () => AntigravityServer,
-        private readonly _getRateLimiter?: () => RateLimiter | undefined,
-        private readonly _getProxyServer?: () => ThrottlingProxyServer | undefined
-    ) {
-        this._server = _getServer();
-    }
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _getServer: () => AntigravityServer,
+    private readonly _getRateLimiter?: () => RateLimiter | undefined,
+    private readonly _getProxyServer?: () => ThrottlingProxyServer | undefined,
+  ) {
+    this._server = _getServer();
+  }
 
-    public async resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken
-    ): Promise<void> {
-        this._view = webviewView;
+  public async resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken,
+  ): Promise<void> {
+    this._view = webviewView;
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this._extensionUri],
+    };
 
-        // Update view when status changes
-        this._server.onDidChangeStatus(() => {
-            this._updateWebview();
-        });
+    // Update view when status changes
+    this._server.onDidChangeStatus(() => {
+      this._updateWebview();
+    });
 
-        // Handle messages from webview
-        webviewView.webview.onDidReceiveMessage(async (data: { type: string; value?: unknown }) => {
-            await this._handleMessage(data);
-        });
+    // Handle messages from webview
+    webviewView.webview.onDidReceiveMessage(
+      async (data: { type: string; value?: unknown }) => {
+        await this._handleMessage(data);
+      },
+    );
 
-        // Initial render
+    // Initial render
+    await this._updateWebview();
+
+    // Start periodic updates (UI refresh)
+    this._updateInterval = setInterval(() => {
+      this._updateWebview();
+    }, 5000);
+
+    webviewView.onDidDispose(() => {
+      if (this._updateInterval) {
+        clearInterval(this._updateInterval);
+      }
+    });
+  }
+
+  private async _handleMessage(data: {
+    type: string;
+    value?: unknown;
+  }): Promise<void> {
+    switch (data.type) {
+      case "startServer":
+        await vscode.commands.executeCommand("antigravity-copilot.startServer");
+        break;
+      case "stopServer":
+        await vscode.commands.executeCommand("antigravity-copilot.stopServer");
+        break;
+      case "restartServer":
+        await vscode.commands.executeCommand(
+          "antigravity-copilot.restartServer",
+        );
+        break;
+      case "loginAntigravity":
+        await vscode.commands.executeCommand(
+          "antigravity-copilot.loginAntigravity",
+        );
+        break;
+      case "configureModels":
+        await vscode.commands.executeCommand(
+          "antigravity-copilot.configureModels",
+        );
+        break;
+      case "openSettings":
+        await vscode.commands.executeCommand(
+          "workbench.action.openSettings",
+          "antigravityCopilot",
+        );
+        break;
+      case "showLogs":
+        await vscode.commands.executeCommand(
+          "workbench.action.output.toggleOutput",
+        );
+        break;
+      case "resetRateLimiter":
+        this._getRateLimiter?.()?.reset();
         await this._updateWebview();
-
-        // Start periodic updates (UI refresh)
-        this._updateInterval = setInterval(() => {
-            this._updateWebview();
-        }, 5000);
-
-        webviewView.onDidDispose(() => {
-            if (this._updateInterval) {
-                clearInterval(this._updateInterval);
-            }
-        });
-    }
-
-    private async _handleMessage(data: { type: string; value?: unknown }): Promise<void> {
-        switch (data.type) {
-            case 'startServer':
-                await vscode.commands.executeCommand('antigravity-copilot.startServer');
-                break;
-            case 'stopServer':
-                await vscode.commands.executeCommand('antigravity-copilot.stopServer');
-                break;
-            case 'restartServer':
-                await vscode.commands.executeCommand('antigravity-copilot.restartServer');
-                break;
-            case 'loginAntigravity':
-                await vscode.commands.executeCommand('antigravity-copilot.loginAntigravity');
-                break;
-            case 'configureModels':
-                await vscode.commands.executeCommand('antigravity-copilot.configureModels');
-                break;
-            case 'openSettings':
-                await vscode.commands.executeCommand('workbench.action.openSettings', 'antigravityCopilot');
-                break;
-            case 'showLogs':
-                await vscode.commands.executeCommand('workbench.action.output.toggleOutput');
-                break;
-            case 'resetRateLimiter':
-                this._getRateLimiter?.()?.reset();
-                await this._updateWebview();
-                break;
-            case 'openRateLimitSettings':
-                await vscode.commands.executeCommand('workbench.action.openSettings', 'antigravityCopilot.rateLimit');
-                break;
-            case 'openExternal': {
-                const url = typeof data.value === 'string' ? data.value : undefined;
-                if (!url) {
-                    return;
-                }
-                try {
-                    await vscode.env.openExternal(vscode.Uri.parse(url));
-                } catch {
-                    // Ignore malformed URLs or open failures.
-                }
-                break;
-            }
+        break;
+      case "openRateLimitSettings":
+        await vscode.commands.executeCommand(
+          "workbench.action.openSettings",
+          "antigravityCopilot.rateLimit",
+        );
+        break;
+      case "openExternal": {
+        const url = typeof data.value === "string" ? data.value : undefined;
+        if (!url) {
+          return;
         }
+        try {
+          await vscode.env.openExternal(vscode.Uri.parse(url));
+        } catch {
+          // Ignore malformed URLs or open failures.
+        }
+        break;
+      }
     }
+  }
 
-    private async _updateWebview(): Promise<void> {
-        if (!this._view) return;
-        this._view.webview.html = await this._getHtml();
-    }
+  private async _updateWebview(): Promise<void> {
+    if (!this._view) return;
+    this._view.webview.html = await this._getHtml();
+  }
 
-    private async _getHtml(): Promise<string> {
-        const status = this._server.getStatus();
-        const isRunning = status.running;
-        
-        // Get proxy server status
-        const proxyStatus = this._getProxyServer?.()?.getStatus();
-        const proxyRunning = proxyStatus?.running ?? false;
-        const proxyPort = proxyStatus?.port;
-        
-        // Get rate limiter status
-        const rlStatus = this._getRateLimiter?.()?.getStatus();
-        const rlStatusText = rlStatus?.isBusy ? '🔄 Busy' : (rlStatus?.isInCooldown ? `⏳ Cooldown (${Math.ceil((rlStatus?.remainingCooldownMs || 0) / 1000)}s)` : '✅ Ready');
-        const rlStatusColor = rlStatus?.isBusy ? '#f59e0b' : (rlStatus?.isInCooldown ? '#3b82f6' : '#22c55e');
+  private async _getHtml(): Promise<string> {
+    const status = this._server.getStatus();
+    const isRunning = status.running;
 
-        const resources = {
-            repository: 'https://github.com/punal100/antigravity-copilot',
-            issues: 'https://github.com/punal100/antigravity-copilot/issues',
-            license: 'https://github.com/punal100/antigravity-copilot/blob/main/LICENSE',
-            microsoftDocs:
-                'https://code.visualstudio.com/docs/copilot/customization/language-models#_bring-your-own-language-model-key'
-        };
+    // Get proxy server status
+    const proxyStatus = this._getProxyServer?.()?.getStatus();
+    const proxyRunning = proxyStatus?.running ?? false;
+    const proxyPort = proxyStatus?.port;
 
-        return `<!DOCTYPE html>
+    // Get rate limiter status
+    const rlStatus = this._getRateLimiter?.()?.getStatus();
+    const rlStatusText = rlStatus?.isBusy
+      ? "🔄 Busy"
+      : rlStatus?.isInCooldown
+        ? `⏳ Cooldown (${Math.ceil((rlStatus?.remainingCooldownMs || 0) / 1000)}s)`
+        : "✅ Ready";
+    const rlStatusColor = rlStatus?.isBusy
+      ? "#f59e0b"
+      : rlStatus?.isInCooldown
+        ? "#3b82f6"
+        : "#22c55e";
+
+    const resources = {
+      repository: "https://github.com/punal100/antigravity-copilot",
+      issues: "https://github.com/punal100/antigravity-copilot/issues",
+      license:
+        "https://github.com/punal100/antigravity-copilot/blob/main/LICENSE",
+      microsoftDocs:
+        "https://code.visualstudio.com/docs/copilot/customization/language-models#_bring-your-own-language-model-key",
+    };
+
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -157,8 +185,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background-color: ${isRunning ? '#22c55e' : '#64748b'};
-            animation: ${isRunning ? 'pulse 2s infinite' : 'none'};
+            background-color: ${isRunning ? "#22c55e" : "#64748b"};
+            animation: ${isRunning ? "pulse 2s infinite" : "none"};
         }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -318,26 +346,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 <body>
     <div class="header">
         <div class="status-indicator"></div>
-        <span class="status-text">${isRunning ? 'Server Running' : 'Server Stopped'}</span>
+        <span class="status-text">${isRunning ? "Server Running" : "Server Stopped"}</span>
     </div>
 
-    ${!isRunning ? `
+    ${!isRunning
+        ? `
         <div class="alert alert-warning">
             ⚠️ Antigravity server is not running. Start it to use Claude and Gemini models in Copilot Chat.
         </div>
-    ` : `
+    `
+        : `
         <div class="alert alert-success">
             ✅ Server is running! You can now use Antigravity models in Copilot Chat.
         </div>
-    `}
+    `
+      }
 
     <div class="actions">
-        ${isRunning ? `
+        ${isRunning
+        ? `
             <button class="btn btn-danger" onclick="stopServer()">⏹️ Stop Server</button>
             <button class="btn btn-secondary" onclick="restartServer()">🔄 Restart Server</button>
-        ` : `
+        `
+        : `
             <button class="btn btn-primary" onclick="startServer()">▶️ Start Server</button>
-        `}
+        `
+      }
         <button class="btn btn-secondary" onclick="loginAntigravity()">🔐 Login to Antigravity</button>
         <button class="btn btn-secondary" onclick="configureModels()">⚙️ Configure Models</button>
         <button class="btn btn-secondary" onclick="openSettings()">⚙️ Settings</button>
@@ -348,7 +382,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <h3>ℹ️ Server Info</h3>
         <div class="info-row">
             <span class="info-label">Status</span>
-            <span class="info-value">${isRunning ? '🟢 Running' : '🔴 Stopped'}</span>
+            <span class="info-value">${isRunning ? "🟢 Running" : "🔴 Stopped"}</span>
         </div>
         <div class="info-row">
             <span class="info-label">CLI Server Port</span>
@@ -356,31 +390,38 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         </div>
         <div class="info-row">
             <span class="info-label">Proxy Status</span>
-            <span class="info-value">${proxyRunning ? '🟢 Running' : '⚫ Disabled'}</span>
+            <span class="info-value">${proxyRunning ? "🟢 Running" : "⚫ Disabled"}</span>
         </div>
-        ${proxyRunning && proxyPort ? `
+        ${proxyRunning && proxyPort
+        ? `
         <div class="info-row">
             <span class="info-label">Proxy Port</span>
             <span class="info-value">${proxyPort}</span>
         </div>
-        ` : ''}
+        `
+        : ""
+      }
         <div class="info-row">
             <span class="info-label">Host</span>
             <span class="info-value">${status.config.host}</span>
         </div>
-        ${status.pid ? `
+        ${status.pid
+        ? `
         <div class="info-row">
             <span class="info-label">PID</span>
             <span class="info-value">${status.pid}</span>
         </div>
-        ` : ''}
+        `
+        : ""
+      }
         <div class="info-row">
             <span class="info-label">Executable</span>
             <span class="info-value" style="font-size: 10px; word-break: break-all;">${status.config.executablePath}</span>
         </div>
     </div>
 
-    ${rlStatus ? `
+    ${rlStatus
+        ? `
     <div class="card">
         <h3>⚡ Rate Limiter</h3>
         <div class="info-row">
@@ -392,25 +433,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <span class="info-value">${rlStatus.cooldownMs / 1000}s</span>
         </div>
         <div style="margin-top: 12px; display: flex; gap: 8px;">
-            ${rlStatus.isBusy || rlStatus.isInCooldown ? `
+            ${rlStatus.isBusy || rlStatus.isInCooldown
+          ? `
                 <button class="btn btn-secondary" style="flex: 1;" onclick="resetRateLimiter()">🔄 Reset</button>
-            ` : ''}
+            `
+          : ""
+        }
             <button class="btn btn-secondary" style="flex: 1;" onclick="openRateLimitSettings()">⚙️ Settings</button>
         </div>
     </div>
-    ` : ''}
+    `
+        : ""
+      }
 
     <div class="card">
         <h3>🤖 Available Models (10)</h3>
         <div class="model-list">
-            ${MODEL_LIST.map(model => `
+            ${MODEL_LIST.map(
+        (model) => `
                 <div class="model-item">
                     <span class="model-name">${model.name}</span>
-                    ${model.toolCalling ? '<span class="model-badge badge-tool">Tools</span>' : ''}
-                    ${model.vision ? '<span class="model-badge badge-vision">Vision</span>' : ''}
-                    ${model.thinking ? '<span class="model-badge badge-thinking">Thinking</span>' : ''}
+                    ${model.toolCalling ? '<span class="model-badge badge-tool">Tools</span>' : ""}
+                    ${model.vision ? '<span class="model-badge badge-vision">Vision</span>' : ""}
+                    ${model.thinking ? '<span class="model-badge badge-thinking">Thinking</span>' : ""}
                 </div>
-            `).join('')}
+            `,
+      ).join("")}
         </div>
     </div>
 
@@ -501,5 +549,5 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     </script>
 </body>
 </html>`;
-    }
+  }
 }

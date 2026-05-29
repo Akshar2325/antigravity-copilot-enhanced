@@ -196,7 +196,7 @@ export class ThrottlingProxyServer implements vscode.Disposable {
 
             // Only apply rate limiting and concurrency queue to chat completion endpoints.
             // Other endpoints (GET /v1/models, health checks, etc.) pass through directly.
-            let forwardResult: { statusCode: number; errorSnippet?: string };
+            let forwardResult: { statusCode?: number; errorSnippet?: string };
 
             if (isChatCompletionEndpoint) {
                 // Use concurrency queue with retry for the forward request.
@@ -339,6 +339,12 @@ export class ThrottlingProxyServer implements vscode.Disposable {
             }
 
             const payload: any = JSON.parse(body.toString('utf8'));
+
+            // 0) Strip Gemini-incompatible JSON Schema keywords from tool/function schemas.
+            // GitHub Copilot injects $comment, enumDescriptions, $schema, etc. into the
+            // function_declarations it sends. Gemini's strict schema validator rejects these
+            // with a 400 INVALID_ARGUMENT error. We strip them transparently here.
+            sanitizeToolSchemas(payload);
 
             // 1) Tool output truncation (reduces prompt size without impacting user instructions much)
             const truncateTools = cfg.get<boolean>('truncateToolOutput', true);
@@ -844,6 +850,87 @@ function truncateToolMessagesInPayload(
 function sanitizeForLog(text: string): string {
     // Avoid multi-line log spam; never include request bodies/prompts here.
     return text.replace(/\s+/g, ' ').slice(0, 400);
+}
+
+/**
+ * JSON Schema keywords that Gemini's strict validator rejects.
+ * These are valid standard JSON Schema keywords but Gemini does not support them.
+ * Reference: https://ai.google.dev/api/generate-content#v1beta.Schema
+ */
+const GEMINI_UNSUPPORTED_SCHEMA_KEYS = new Set([
+    '$comment',
+    '$schema',
+    '$id',
+    '$ref',
+    '$defs',
+    '$anchor',
+    'enumDescriptions',
+    'markdownDescription',
+    'deprecated',
+    'readOnly',
+    'writeOnly',
+    'examples',
+    'contentEncoding',
+    'contentMediaType',
+    'unevaluatedProperties',
+    'unevaluatedItems',
+    'if',
+    'then',
+    'else',
+    'dependentSchemas',
+    'dependentRequired',
+    'patternProperties',
+]);
+
+/**
+ * Recursively removes Gemini-incompatible JSON Schema keywords from an object.
+ * Mutates the object in place for efficiency.
+ */
+function stripGeminiUnsupportedKeys(obj: any): void {
+    if (!obj || typeof obj !== 'object') {
+        return;
+    }
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            stripGeminiUnsupportedKeys(item);
+        }
+        return;
+    }
+    for (const key of Object.keys(obj)) {
+        if (GEMINI_UNSUPPORTED_SCHEMA_KEYS.has(key)) {
+            delete obj[key];
+        } else {
+            stripGeminiUnsupportedKeys(obj[key]);
+        }
+    }
+}
+
+/**
+ * Strips Gemini-incompatible keywords from all function_declarations in tools[].
+ * This is the entry point called per-request in tryRewritePayload().
+ */
+function sanitizeToolSchemas(payload: any): void {
+    try {
+        if (!Array.isArray(payload?.tools)) {
+            return;
+        }
+        for (const tool of payload.tools) {
+            // OpenAI-style: tools[].function.parameters
+            if (tool?.function?.parameters) {
+                stripGeminiUnsupportedKeys(tool.function.parameters);
+            }
+            // Gemini-style: tools[].function_declarations[].parameters
+            if (Array.isArray(tool?.function_declarations)) {
+                for (const fn of tool.function_declarations) {
+                    if (fn?.parameters) {
+                        stripGeminiUnsupportedKeys(fn.parameters);
+                    }
+                }
+            }
+        }
+    } catch {
+        // Best effort; never crash on tool sanitization
+    }
 }
 
 function isSameConfig(a: ThrottlingProxyConfig, b: ThrottlingProxyConfig): boolean {
