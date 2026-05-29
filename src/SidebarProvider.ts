@@ -489,9 +489,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     <div class="card">
         <h3>📖 Requirements</h3>
         <ul style="font-size: 11px; line-height: 1.5; padding-left: 20px; margin-top: 8px; color: var(--vscode-descriptionForeground);">
-            <li>VS Code Insiders (for custom models)</li>
+            <li>VS Code LTS or Insiders (for custom models)</li>
             <li>GitHub Copilot Pro subscription</li>
-            <li>GitHub Copilot + Chat (pre-release)</li>
+            <li>GitHub Copilot Chat extension installed</li>
             <li>CLIProxyAPI installed in %USERPROFILE%\\CLIProxyAPI</li>
         </ul>
     </div>

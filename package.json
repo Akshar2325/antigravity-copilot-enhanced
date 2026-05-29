@@ -3,7 +3,8 @@
   "displayName": "Antigravity for Copilot",
   "description": "Use Google Antigravity models (Claude, Gemini) in GitHub Copilot Chat via CLIProxyAPI",
   "version": "1.6.0",
-  "publisher": "punal100",
+  "publisher": "akshar-bhesaniya",
+  "author": "akshar-bhesaniya",
   "icon": "media/icon.png",
   "engines": {
     "vscode": "^1.95.0"

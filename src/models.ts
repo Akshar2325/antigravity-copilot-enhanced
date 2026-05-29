@@ -35,7 +35,7 @@ interface OpenAIModelsResponse {
 export async function fetchModelsFromServer(
   host: string,
   port: number,
-): Promise<Record<string, CopilotModelConfig>> {
+): Promise<{ models: Record<string, CopilotModelConfig>; rawResponse: any }> {
   return new Promise((resolve, reject) => {
     const options: http.RequestOptions = {
       hostname: host,
@@ -76,7 +76,7 @@ export async function fetchModelsFromServer(
             };
           }
 
-          resolve(models);
+          resolve({ models, rawResponse: response });
         } catch (error) {
           reject(new Error(`Failed to parse models response: ${error}`));
         }

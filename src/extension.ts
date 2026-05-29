@@ -553,7 +553,13 @@ async function configureAntigravityModels(
 
         // Try to fetch models dynamically from the server
         try {
-            models = await fetchModelsFromServer(host, port);
+            const fetchResult = await fetchModelsFromServer(host, port);
+            models = fetchResult.models;
+            outputChannel?.appendLine(`[INFO] Raw Antigravity API models response:\n${JSON.stringify(fetchResult.rawResponse, null, 4)}`);
+            outputChannel?.appendLine(`[INFO] Successfully configured ${Object.keys(models).length} models for Copilot Chat:`);
+            for (const [id, config] of Object.entries(models)) {
+                outputChannel?.appendLine(`  - ${id}: name="${config.name}", toolCalling=${config.toolCalling}, vision=${config.vision}, thinking=${config.thinking}, maxInputTokens=${config.maxInputTokens}, maxOutputTokens=${config.maxOutputTokens}`);
+            }
             if (!silent) {
                 vscode.window.showInformationMessage(
                     `Fetched ${Object.keys(models).length} models from Antigravity server`,
@@ -599,9 +605,15 @@ async function configureAntigravityModels(
                     "Reload",
                 );
                 if (selection === "Open Manage Models") {
-                    void vscode.commands.executeCommand(
-                        "workbench.action.chat.openLanguageModelsSettings",
-                    );
+                    const filePath = getChatLanguageModelsPath();
+                    if (filePath && fs.existsSync(filePath)) {
+                        const doc = await vscode.workspace.openTextDocument(filePath);
+                        await vscode.window.showTextDocument(doc);
+                    } else {
+                        void vscode.commands.executeCommand(
+                            "workbench.action.chat.openLanguageModelsSettings",
+                        );
+                    }
                 } else if (selection === "Show Quick Enable Guide") {
                     await showModelEnablementGuide();
                 } else if (selection === "Reload") {
