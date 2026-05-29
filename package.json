@@ -2,7 +2,7 @@
   "name": "antigravity-copilot",
   "displayName": "Antigravity for Copilot",
   "description": "Use Google Antigravity models (Claude, Gemini) in GitHub Copilot Chat via CLIProxyAPI",
-  "version": "1.6.0",
+  "version": "1.0.0",
   "publisher": "akshar-bhesaniya",
   "author": "akshar-bhesaniya",
   "icon": "media/icon.png",
@@ -293,7 +293,8 @@
         {
           "type": "webview",
           "id": "antigravity-copilot.sidebarView",
-          "name": "Dashboard"
+          "name": "Dashboard",
+          "icon": "media/icon.svg"
         }
       ]
     }
