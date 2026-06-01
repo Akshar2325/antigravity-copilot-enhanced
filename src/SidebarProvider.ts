@@ -149,10 +149,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         : "#22c55e";
 
     const resources = {
-      repository: "https://github.com/punal100/antigravity-copilot",
-      issues: "https://github.com/punal100/antigravity-copilot/issues",
+      repository: "https://github.com/Akshar2325/antigravity-copilot-enhanced",
+      issues:
+        "https://github.com/Akshar2325/antigravity-copilot-enhanced/issues",
       license:
-        "https://github.com/punal100/antigravity-copilot/blob/main/LICENSE",
+        "https://github.com/Akshar2325/antigravity-copilot-enhanced/blob/main/LICENSE",
       microsoftDocs:
         "https://code.visualstudio.com/docs/copilot/customization/language-models#_bring-your-own-language-model-key",
     };
@@ -350,7 +351,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <span class="status-text">${isRunning ? "Server Running" : "Server Stopped"}</span>
     </div>
 
-    ${!isRunning
+    ${
+      !isRunning
         ? `
         <div class="alert alert-warning">
             ⚠️ Antigravity server is not running. Start it to use Claude and Gemini models in Copilot Chat.
@@ -361,18 +363,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             ✅ Server is running! You can now use Antigravity models in Copilot Chat.
         </div>
     `
-      }
+    }
 
     <div class="actions">
-        ${isRunning
-        ? `
+        ${
+          isRunning
+            ? `
             <button class="btn btn-danger" onclick="stopServer()">⏹️ Stop Server</button>
             <button class="btn btn-secondary" onclick="restartServer()">🔄 Restart Server</button>
         `
-        : `
+            : `
             <button class="btn btn-primary" onclick="startServer()">▶️ Start Server</button>
         `
-      }
+        }
         <button class="btn btn-secondary" onclick="loginAntigravity()">🔐 Login to Antigravity</button>
         <button class="btn btn-secondary" onclick="configureModels()">⚙️ Configure Models</button>
         <button class="btn btn-secondary" onclick="openSettings()">⚙️ Settings</button>
@@ -393,35 +396,38 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <span class="info-label">Proxy Status</span>
             <span class="info-value">${proxyRunning ? "🟢 Running" : "⚫ Disabled"}</span>
         </div>
-        ${proxyRunning && proxyPort
-        ? `
+        ${
+          proxyRunning && proxyPort
+            ? `
         <div class="info-row">
             <span class="info-label">Proxy Port</span>
             <span class="info-value">${proxyPort}</span>
         </div>
         `
-        : ""
-      }
+            : ""
+        }
         <div class="info-row">
             <span class="info-label">Host</span>
             <span class="info-value">${status.config.host}</span>
         </div>
-        ${status.pid
-        ? `
+        ${
+          status.pid
+            ? `
         <div class="info-row">
             <span class="info-label">PID</span>
             <span class="info-value">${status.pid}</span>
         </div>
         `
-        : ""
-      }
+            : ""
+        }
         <div class="info-row">
             <span class="info-label">Executable</span>
             <span class="info-value" style="font-size: 10px; word-break: break-all;">${status.config.executablePath}</span>
         </div>
     </div>
 
-    ${rlStatus
+    ${
+      rlStatus
         ? `
     <div class="card">
         <h3>⚡ Rate Limiter</h3>
@@ -434,18 +440,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <span class="info-value">${rlStatus.cooldownMs / 1000}s</span>
         </div>
         <div style="margin-top: 12px; display: flex; gap: 8px;">
-            ${rlStatus.isBusy || rlStatus.isInCooldown
-          ? `
+            ${
+              rlStatus.isBusy || rlStatus.isInCooldown
+                ? `
                 <button class="btn btn-secondary" style="flex: 1;" onclick="resetRateLimiter()">🔄 Reset</button>
             `
-          : ""
-        }
+                : ""
+            }
             <button class="btn btn-secondary" style="flex: 1;" onclick="openRateLimitSettings()">⚙️ Settings</button>
         </div>
     </div>
     `
         : ""
-      }
+    }
 
     <div class="card">
         ${(() => {
@@ -461,16 +468,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           return `
             <h3>🤖 Available Models (${models.length})</h3>
             <div class="model-list">
-                ${models.map(
-                  (model) => `
+                ${models
+                  .map(
+                    (model) => `
                     <div class="model-item">
                         <span class="model-name">${model.name}</span>
                         ${model.toolCalling ? '<span class="model-badge badge-tool">Tools</span>' : ""}
                         ${model.vision ? '<span class="model-badge badge-vision">Vision</span>' : ""}
                         ${model.thinking ? '<span class="model-badge badge-thinking">Thinking</span>' : ""}
                     </div>
-                  `
-                ).join("")}
+                  `,
+                  )
+                  .join("")}
             </div>
           `;
         })()}

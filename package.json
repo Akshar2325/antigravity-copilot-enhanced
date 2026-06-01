@@ -320,8 +320,8 @@
     "typescript": "~5.5.4",
     "@vscode/vsce": "^2.22.0"
   },
-  "repository": "https://github.com/punal100/antigravity-copilot",
-  "homepage": "https://github.com/punal100/antigravity-copilot#readme",
-  "bugs": "https://github.com/punal100/antigravity-copilot/issues",
+  "repository": "https://github.com/Akshar2325/antigravity-copilot-enhanced",
+  "homepage": "https://github.com/Akshar2325/antigravity-copilot-enhanced#readme",
+  "bugs": "https://github.com/Akshar2325/antigravity-copilot-enhanced/issues",
   "license": "MIT"
 }

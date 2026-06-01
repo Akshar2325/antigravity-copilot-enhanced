@@ -8,15 +8,15 @@ A VS Code extension that bridges the [Antigravity](https://antigravity.dev) AI s
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🤖 **12+ AI Models** | Gemini 3 (Flash/Pro/Agent), Gemini 3.1/3.5, Claude Sonnet/Opus, GPT-OSS |
-| 🧠 **Thinking Models** | Claude Opus 4.6 with extended reasoning / thinking blocks |
-| 👁️ **Vision Support** | Attach images to your Copilot Chat messages |
-| 🛡️ **Auto Schema Fix** | Strips Gemini-incompatible JSON Schema fields (`$comment`, `enumDescriptions`) automatically |
-| ⚡ **Rate Limit Protection** | Smart cooldown, retry with exponential backoff, per-model concurrency queues |
-| 📊 **Live Dashboard** | Sidebar shows server status, proxy status, rate limiter state, and model list |
-| 🔄 **Auto-Configure** | Automatically registers all models in Copilot Chat on server start |
+| Feature                      | Description                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| 🤖 **12+ AI Models**         | Gemini 3 (Flash/Pro/Agent), Gemini 3.1/3.5, Claude Sonnet/Opus, GPT-OSS                      |
+| 🧠 **Thinking Models**       | Claude Opus 4.6 with extended reasoning / thinking blocks                                    |
+| 👁️ **Vision Support**        | Attach images to your Copilot Chat messages                                                  |
+| 🛡️ **Auto Schema Fix**       | Strips Gemini-incompatible JSON Schema fields (`$comment`, `enumDescriptions`) automatically |
+| ⚡ **Rate Limit Protection** | Smart cooldown, retry with exponential backoff, per-model concurrency queues                 |
+| 📊 **Live Dashboard**        | Sidebar shows server status, proxy status, rate limiter state, and model list                |
+| 🔄 **Auto-Configure**        | Automatically registers all models in Copilot Chat on server start                           |
 
 ---
 
@@ -56,18 +56,18 @@ VS Code Copilot Chat
 
 ## 📦 Source Files
 
-| File | Purpose |
-|---|---|
-| [`src/extension.ts`](src/extension.ts) | Entry point. Registers commands, status bar, sidebar. Manages server lifecycle and auto-configures Copilot models. |
-| [`src/models.ts`](src/models.ts) | Model definitions (`ANTIGRAVITY_MODELS`), dynamic model fetching from `/v1/models`, capability inference (`inferVision`, `inferThinking`, etc.). |
-| [`src/ThrottlingProxyServer.ts`](src/ThrottlingProxyServer.ts) | Core HTTP proxy. Rewrites payloads, strips Gemini-incompatible schema fields, enforces rate limits, streams responses. |
-| [`src/ThinkingStreamTransformer.ts`](src/ThinkingStreamTransformer.ts) | SSE stream transformer that converts `reasoning_content` tokens into VS Code-renderable thinking blocks. |
-| [`src/AntigravityServer.ts`](src/AntigravityServer.ts) | Manages the CLIProxyAPI child process: start/stop/restart/login, config file management, port detection. |
-| [`src/CLIProxyAPIDownloader.ts`](src/CLIProxyAPIDownloader.ts) | Downloads and extracts the CLIProxyAPI binary from GitHub Releases. |
-| [`src/RateLimiter.ts`](src/RateLimiter.ts) | Singleton rate limiter. Enforces per-request cooldowns, tracks 429 errors, exponential backoff. |
-| [`src/ConcurrencyQueue.ts`](src/ConcurrencyQueue.ts) | Semaphore-based concurrency queue with retry. Thinking models get a separate low-concurrency queue (default: 1). |
-| [`src/QuotaManager.ts`](src/QuotaManager.ts) | Reads quota/credit info from the Antigravity process via its internal HTTPS API. |
-| [`src/SidebarProvider.ts`](src/SidebarProvider.ts) | Webview sidebar panel — server status, proxy status, rate limiter, model list. |
+| File                                                                   | Purpose                                                                                                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`src/extension.ts`](src/extension.ts)                                 | Entry point. Registers commands, status bar, sidebar. Manages server lifecycle and auto-configures Copilot models.                               |
+| [`src/models.ts`](src/models.ts)                                       | Model definitions (`ANTIGRAVITY_MODELS`), dynamic model fetching from `/v1/models`, capability inference (`inferVision`, `inferThinking`, etc.). |
+| [`src/ThrottlingProxyServer.ts`](src/ThrottlingProxyServer.ts)         | Core HTTP proxy. Rewrites payloads, strips Gemini-incompatible schema fields, enforces rate limits, streams responses.                           |
+| [`src/ThinkingStreamTransformer.ts`](src/ThinkingStreamTransformer.ts) | SSE stream transformer that converts `reasoning_content` tokens into VS Code-renderable thinking blocks.                                         |
+| [`src/AntigravityServer.ts`](src/AntigravityServer.ts)                 | Manages the CLIProxyAPI child process: start/stop/restart/login, config file management, port detection.                                         |
+| [`src/CLIProxyAPIDownloader.ts`](src/CLIProxyAPIDownloader.ts)         | Downloads and extracts the CLIProxyAPI binary from GitHub Releases.                                                                              |
+| [`src/RateLimiter.ts`](src/RateLimiter.ts)                             | Singleton rate limiter. Enforces per-request cooldowns, tracks 429 errors, exponential backoff.                                                  |
+| [`src/ConcurrencyQueue.ts`](src/ConcurrencyQueue.ts)                   | Semaphore-based concurrency queue with retry. Thinking models get a separate low-concurrency queue (default: 1).                                 |
+| [`src/QuotaManager.ts`](src/QuotaManager.ts)                           | Reads quota/credit info from the Antigravity process via its internal HTTPS API.                                                                 |
+| [`src/SidebarProvider.ts`](src/SidebarProvider.ts)                     | Webview sidebar panel — server status, proxy status, rate limiter, model list.                                                                   |
 
 ---
 
@@ -89,6 +89,7 @@ This means if Antigravity adds new models in the future, they will immediately s
 ## 🛠️ Development Setup
 
 ### Prerequisites
+
 - Node.js 18+
 - VS Code 1.90+
 - GitHub Copilot Chat extension installed
@@ -96,7 +97,7 @@ This means if Antigravity adds new models in the future, they will immediately s
 ### Install & Build
 
 ```bash
-git clone https://github.com/punal100/antigravity-copilot.git
+git clone https://github.com/Akshar2325/antigravity-copilot-enhanced.git
 cd antigravity-copilot
 npm install
 npm run compile
@@ -139,18 +140,18 @@ code --install-extension antigravity-copilot-1.6.0.vsix
 
 Open VS Code Settings and search for `antigravityCopilot`:
 
-| Setting | Default | Description |
-|---|---|---|
-| `antigravityCopilot.server.autoStart` | `false` | Auto-start CLIProxyAPI on VS Code launch |
-| `antigravityCopilot.server.port` | `8317` | CLIProxyAPI port |
-| `antigravityCopilot.server.executablePath` | auto | Path to `cli-proxy-api.exe` |
-| `antigravityCopilot.proxy.enabled` | `true` | Enable the throttling proxy |
-| `antigravityCopilot.proxy.port` | `8420` | Proxy port (Copilot sends requests here) |
-| `antigravityCopilot.proxy.thinkingConcurrency` | `1` | Max parallel requests for thinking models |
-| `antigravityCopilot.proxy.standardConcurrency` | `3` | Max parallel requests for standard models |
-| `antigravityCopilot.rateLimit.enabled` | `true` | Enable rate limiting |
-| `antigravityCopilot.rateLimit.cooldownMs` | `15000` | Cooldown between requests (ms) |
-| `antigravityCopilot.autoConfigureCopilot` | `true` | Auto-register models in Copilot on start |
+| Setting                                        | Default | Description                               |
+| ---------------------------------------------- | ------- | ----------------------------------------- |
+| `antigravityCopilot.server.autoStart`          | `false` | Auto-start CLIProxyAPI on VS Code launch  |
+| `antigravityCopilot.server.port`               | `8317`  | CLIProxyAPI port                          |
+| `antigravityCopilot.server.executablePath`     | auto    | Path to `cli-proxy-api.exe`               |
+| `antigravityCopilot.proxy.enabled`             | `true`  | Enable the throttling proxy               |
+| `antigravityCopilot.proxy.port`                | `8420`  | Proxy port (Copilot sends requests here)  |
+| `antigravityCopilot.proxy.thinkingConcurrency` | `1`     | Max parallel requests for thinking models |
+| `antigravityCopilot.proxy.standardConcurrency` | `3`     | Max parallel requests for standard models |
+| `antigravityCopilot.rateLimit.enabled`         | `true`  | Enable rate limiting                      |
+| `antigravityCopilot.rateLimit.cooldownMs`      | `15000` | Cooldown between requests (ms)            |
+| `antigravityCopilot.autoConfigureCopilot`      | `true`  | Auto-register models in Copilot on start  |
 
 ---
 
@@ -205,6 +206,7 @@ The `url` always points to the **proxy** (port 8420), not CLIProxyAPI directly �
 ### 429 / Rate limit errors
 
 Thinking models (Claude Opus Thinking) have strict upstream rate limits. The proxy automatically:
+
 - Queues concurrent requests (1 at a time for thinking models)
 - Retries with exponential backoff (up to 5 retries)
 - Shows a notification with the cooldown period
