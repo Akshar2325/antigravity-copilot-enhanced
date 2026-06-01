@@ -1,6 +1,6 @@
 {
   "name": "antigravity-copilot-enhanced",
-  "displayName": "Antigravity for Copilot",
+  "displayName": "Antigravity for Copilot by Akshar",
   "description": "Use Google Antigravity models (Claude, Gemini) in GitHub Copilot Chat via CLIProxyAPI",
   "version": "1.0.0",
   "publisher": "akshar-bhesaniya",
