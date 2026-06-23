@@ -29,10 +29,6 @@ export interface QuotaSnapshot {
   models: ModelQuotaInfo[];
 }
 
-interface ProcessInfo {
-  port: number;
-  csrfToken: string;
-}
 
 interface ServerUserStatusResponse {
   userStatus: {
@@ -116,16 +112,13 @@ export class QuotaManager {
       const commandLine = antigravityProcess.CommandLine;
 
       // Extract CSRF token
-      const tokenMatch = commandLine.match(/--csrf_token[=\s]+([a-f0-9\-]+)/i);
+      const tokenMatch = commandLine.match(/--csrf_token[=\s]+([a-f0-9-]+)/i);
       if (!tokenMatch || !tokenMatch[1]) {
         this.log("CSRF token not found in command line");
         return false;
       }
       this.csrfToken = tokenMatch[1];
 
-      // Extract extension server port (optional, we'll discover it)
-      const portMatch = commandLine.match(/--extension_server_port[=\s]+(\d+)/);
-      const extensionPort = portMatch ? parseInt(portMatch[1], 10) : 0;
 
       // Get listening ports for this PID
       const pid = antigravityProcess.ProcessId;

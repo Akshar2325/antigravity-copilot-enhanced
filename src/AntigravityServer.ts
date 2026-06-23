@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as net from 'net';
-import { spawn, ChildProcess, execFile } from 'child_process';
+import { spawn, ChildProcess, execFile, execSync } from 'child_process';
 import { installCLIProxyAPI } from './CLIProxyAPIDownloader';
 
 export interface ServerConfig {
@@ -81,7 +81,7 @@ export class AntigravityServer implements vscode.Disposable {
             return this.getDefaultExecutablePath();
         }
         const isWindows = process.platform === 'win32';
-        const storedIsWindowsPath = storedPath.endsWith('.exe') || /^[A-Za-z]:[\\\/]/.test(storedPath);
+        const storedIsWindowsPath = storedPath.endsWith('.exe') || /^[A-Za-z]:[/\\]/.test(storedPath);
         if (isWindows !== storedIsWindowsPath) {
             this.logInfo(`Stored executablePath "${storedPath}" is for a different platform — using platform default`);
             return this.getDefaultExecutablePath();
@@ -488,7 +488,7 @@ providers:
     /** Returns true if PowerShell (powershell.exe or pwsh.exe) is available on PATH. */
     private isPowerShellAvailable(): boolean {
         try {
-            const { execSync } = require('child_process') as typeof import('child_process');
+            
             execSync('powershell.exe -NoProfile -Command "exit 0"', { stdio: 'ignore', timeout: 2000 });
             return true;
         } catch {
