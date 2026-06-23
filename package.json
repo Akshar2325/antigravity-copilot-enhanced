@@ -2,7 +2,7 @@
   "name": "antigravity-copilot-enhanced",
   "displayName": "Antigravity for Copilot by Akshar",
   "description": "Use Google Antigravity models (Claude, Gemini) in GitHub Copilot Chat via CLIProxyAPI",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "publisher": "akshar-bhesaniya",
   "author": "akshar-bhesaniya",
   "icon": "media/icon.png",
@@ -313,15 +313,16 @@
     "yauzl": "^2.10.0"
   },
   "devDependencies": {
-    "@types/yauzl": "^2.10.3",
     "@types/node": "^20.x",
     "@types/vscode": "^1.95.0",
+    "@types/yauzl": "^2.10.3",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^2.22.0",
     "esbuild": "^0.27.2",
     "eslint": "^8.56.0",
-    "typescript": "~5.5.4",
-    "@vscode/vsce": "^2.22.0"
+    "ovsx": "^1.0.2",
+    "typescript": "~5.5.4"
   },
   "repository": "https://github.com/Akshar2325/antigravity-copilot-enhanced",
   "homepage": "https://github.com/Akshar2325/antigravity-copilot-enhanced#readme",
