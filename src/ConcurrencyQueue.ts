@@ -138,7 +138,7 @@ export async function retryWithBackoff<T>(
 
     let attempt = 0;
 
-    while (true) {
+    for (;;) {
         try {
             return await fn();
         } catch (err: any) {
