@@ -652,8 +652,8 @@ export class ThrottlingProxyServer implements vscode.Disposable {
             const detectorEnabled = cfg.get<boolean>("logRequests", false);
             const detector = detectorEnabled
               ? new SSEChoicesDetector((warning: string) =>
-                  this.logInfo(warning),
-                )
+                this.logInfo(warning),
+              )
               : undefined;
 
             const source = detector ? replay.pipe(detector) : replay;
@@ -999,6 +999,7 @@ function sanitizeForLog(text: string): string {
  * JSON Schema keywords that Gemini's strict validator rejects.
  * These are valid standard JSON Schema keywords but Gemini does not support them.
  * Reference: https://ai.google.dev/api/generate-content#v1beta.Schema
+ *            https://ai.google.dev/api/caching#Schema
  */
 const GEMINI_UNSUPPORTED_SCHEMA_KEYS = new Set([
   "$comment",
@@ -1023,6 +1024,15 @@ const GEMINI_UNSUPPORTED_SCHEMA_KEYS = new Set([
   "dependentSchemas",
   "dependentRequired",
   "patternProperties",
+  // JSON Schema validation keywords not supported by Gemini's Schema type
+  "propertyNames",
+  "allOf",
+  "not",
+  "const",
+  "uniqueItems",
+  "multipleOf",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
 ]);
 
 /**

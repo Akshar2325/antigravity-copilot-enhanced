@@ -2,7 +2,7 @@
   "name": "antigravity-copilot-enhanced",
   "displayName": "Antigravity for Copilot by Akshar",
   "description": "Use Google Antigravity models (Claude, Gemini) in GitHub Copilot Chat via CLIProxyAPI",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "publisher": "akshar-bhesaniya",
   "author": "akshar-bhesaniya",
   "icon": "media/icon.png",
@@ -81,7 +81,8 @@
         "antigravityCopilot.server.executablePath": {
           "type": "string",
           "default": "",
-          "description": "Path to cli-proxy-api.exe (leave empty to auto-detect in %USERPROFILE%\\CLIProxyAPI)"
+          "scope": "machine",
+          "description": "Path to cli-proxy-api executable (leave empty to auto-detect and auto-download). This setting is machine-local and not synced across devices."
         },
         "antigravityCopilot.server.port": {
           "type": "number",
@@ -304,7 +305,8 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "package": "vsce package",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "yauzl": "^2.10.0"
