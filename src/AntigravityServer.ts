@@ -55,19 +55,38 @@ export class AntigravityServer implements vscode.Disposable {
 
     private getServerConfig(): ServerConfig {
         const config = vscode.workspace.getConfiguration('antigravityCopilot.server');
+        const storedPath = config.get<string>('executablePath', '');
         return {
             enabled: config.get<boolean>('enabled', false),
             autoStart: config.get<boolean>('autoStart', false),
-            executablePath: config.get<string>('executablePath', '') || this.getDefaultExecutablePath(),
+            executablePath: this.resolveExecutablePath(storedPath),
             port: config.get<number>('port', 8317),
             host: config.get<string>('host', '127.0.0.1')
         };
     }
 
     private getDefaultExecutablePath(): string {
-        const userProfile = os.homedir();
-        const defaultPath = path.join(userProfile, 'CLIProxyAPI', 'cli-proxy-api.exe');
-        return defaultPath;
+        const execName = process.platform === 'win32' ? 'cli-proxy-api.exe' : 'cli-proxy-api';
+        return path.join(os.homedir(), 'CLIProxyAPI', execName);
+    }
+
+    /**
+     * Resolve the executable path to use. If the stored path is empty, a
+     * Windows-style path on a non-Windows machine, or a non-Windows binary on
+     * Windows, fall back to the platform default so synced settings never break
+     * another machine.
+     */
+    private resolveExecutablePath(storedPath: string): string {
+        if (!storedPath) {
+            return this.getDefaultExecutablePath();
+        }
+        const isWindows = process.platform === 'win32';
+        const storedIsWindowsPath = storedPath.endsWith('.exe') || /^[A-Za-z]:[\\\/]/.test(storedPath);
+        if (isWindows !== storedIsWindowsPath) {
+            this.logInfo(`Stored executablePath "${storedPath}" is for a different platform — using platform default`);
+            return this.getDefaultExecutablePath();
+        }
+        return storedPath;
     }
 
     private getConfigPath(): string {
@@ -160,116 +179,13 @@ providers:
             return;
         }
 
-        // Check if executable exists
+        // Auto-download CLIProxyAPI silently if the binary is missing.
         if (!fs.existsSync(this.config.executablePath)) {
-            const isWindows = process.platform === 'win32';
-            const options = ['Download CLIProxyAPI', 'Configure Path'];
-            if (isWindows) {
-                options.splice(1, 0, 'Auto-Download & Install');
+            this.logInfo(`CLIProxyAPI not found at "${this.config.executablePath}" — auto-downloading...`);
+            const installed = await this.autoInstall();
+            if (!installed) {
+                return; // error already shown inside autoInstall()
             }
-
-            const selection = await vscode.window.showErrorMessage(
-                `CLIProxyAPI executable not found at: ${this.config.executablePath}`,
-                ...options
-            );
-
-            if (selection === 'Download CLIProxyAPI') {
-                vscode.env.openExternal(vscode.Uri.parse('https://github.com/router-for-me/CLIProxyAPI/releases/latest'));
-            } else if (selection === 'Auto-Download & Install') {
-                const result = await vscode.window.withProgress(
-                    {
-                        location: vscode.ProgressLocation.Notification,
-                        title: 'Installing CLIProxyAPI...',
-                        cancellable: false
-                    },
-                    async (progress) => {
-                        let lastPercent = 0;
-                        return await installCLIProxyAPI(
-                            (percent) => {
-                                const clampedPercent = Math.min(100, percent);
-                                const delta = clampedPercent - lastPercent;
-                                if (delta > 0) {
-                                    progress.report({ increment: Math.max(0, 100 - lastPercent, delta), message: `${clampedPercent}%` });
-                                    lastPercent = clampedPercent;
-                                }
-                            },
-                            this.output
-                        );
-                    }
-                );
-
-                if (result.success) {
-                    if (result.executablePath) {
-                        await this.updateServerConfig({ executablePath: result.executablePath });
-                        this.config.executablePath = result.executablePath;
-                        this.logInfo(`Updated executablePath in config: ${result.executablePath}`);
-                    }
-                    const selection = await vscode.window.showInformationMessage(
-                        `CLIProxyAPI ${result.version} installed successfully!`,
-                        'Start Server'
-                    );
-                    if (selection === 'Start Server') {
-                        await this.start();
-                    }
-                    this.config = this.getServerConfig();
-                } else {
-                    const selection = await vscode.window.showErrorMessage(
-                        `Failed to install CLIProxyAPI: ${result.error}`,
-                        'Retry',
-                        'View Logs'
-                    );
-                    if (selection === 'Retry') {
-                        const retryResult = await vscode.window.withProgress(
-                            {
-                                location: vscode.ProgressLocation.Notification,
-                                title: 'Retrying CLIProxyAPI installation...',
-                                cancellable: false
-                            },
-                            async (progress) => {
-                                let lastPercent = 0;
-                                return await installCLIProxyAPI(
-                                    (percent) => {
-                                        const delta = percent - lastPercent;
-                                        if (delta > 0) {
-                                            progress.report({ increment: delta, message: `${percent}%` });
-                                            lastPercent = percent;
-                                        }
-                                    },
-                                    this.output
-                                );
-                            }
-                        );
-                        if (retryResult.success) {
-                            if (retryResult.executablePath) {
-                                await this.updateServerConfig({ executablePath: retryResult.executablePath });
-                                this.config.executablePath = retryResult.executablePath;
-                                this.logInfo(`Updated executablePath in config: ${retryResult.executablePath}`);
-                            }
-                            const retrySelection = await vscode.window.showInformationMessage(
-                                `CLIProxyAPI ${retryResult.version} installed successfully!`,
-                                'Start Server'
-                            );
-                            if (retrySelection === 'Start Server') {
-                                await this.start();
-                            }
-                            this.config = this.getServerConfig();
-                        } else {
-                            const viewLogsSelection = await vscode.window.showErrorMessage(
-                                `Failed to install CLIProxyAPI: ${retryResult.error}`,
-                                'View Logs'
-                            );
-                            if (viewLogsSelection === 'View Logs') {
-                                this.output.show(true);
-                            }
-                        }
-                    } else if (selection === 'View Logs') {
-                        this.output.show(true);
-                    }
-                }
-            } else if (selection === 'Configure Path') {
-                vscode.commands.executeCommand('workbench.action.openSettings', 'antigravityCopilot.server.executablePath');
-            }
-            return;
         }
 
         // Find an available port (try configured port first, then increment)
@@ -463,116 +379,13 @@ providers:
     }
 
     public async login(): Promise<void> {
-        // Check if executable exists
+        // Auto-download CLIProxyAPI silently if the binary is missing.
         if (!fs.existsSync(this.config.executablePath)) {
-            const isWindows = process.platform === 'win32';
-            const options = ['Download CLIProxyAPI', 'Configure Path'];
-            if (isWindows) {
-                options.splice(1, 0, 'Auto-Download & Install');
+            this.logInfo(`CLIProxyAPI not found at "${this.config.executablePath}" — auto-downloading...`);
+            const installed = await this.autoInstall();
+            if (!installed) {
+                return; // error already shown inside autoInstall()
             }
-
-            const selection = await vscode.window.showErrorMessage(
-                `CLIProxyAPI executable not found at: ${this.config.executablePath}`,
-                ...options
-            );
-
-            if (selection === 'Download CLIProxyAPI') {
-                vscode.env.openExternal(vscode.Uri.parse('https://github.com/router-for-me/CLIProxyAPI/releases/latest'));
-            } else if (selection === 'Auto-Download & Install') {
-                const result = await vscode.window.withProgress(
-                    {
-                        location: vscode.ProgressLocation.Notification,
-                        title: 'Installing CLIProxyAPI...',
-                        cancellable: false
-                    },
-                    async (progress) => {
-                        let lastPercent = 0;
-                        return await installCLIProxyAPI(
-                            (percent) => {
-                                const clampedPercent = Math.min(100, percent);
-                                const delta = clampedPercent - lastPercent;
-                                if (delta > 0) {
-                                    progress.report({ increment: Math.max(0, 100 - lastPercent, delta), message: `${clampedPercent}%` });
-                                    lastPercent = clampedPercent;
-                                }
-                            },
-                            this.output
-                        );
-                    }
-                );
-
-                if (result.success) {
-                    if (result.executablePath) {
-                        await this.updateServerConfig({ executablePath: result.executablePath });
-                        this.config.executablePath = result.executablePath;
-                        this.logInfo(`Updated executablePath in config: ${result.executablePath}`);
-                    }
-                    const selection = await vscode.window.showInformationMessage(
-                        `CLIProxyAPI ${result.version} installed successfully!`,
-                        'Start Server'
-                    );
-                    if (selection === 'Start Server') {
-                        await this.start();
-                    }
-                    this.config = this.getServerConfig();
-                } else {
-                    const selection = await vscode.window.showErrorMessage(
-                        `Failed to install CLIProxyAPI: ${result.error}`,
-                        'Retry',
-                        'View Logs'
-                    );
-                    if (selection === 'Retry') {
-                        const retryResult = await vscode.window.withProgress(
-                            {
-                                location: vscode.ProgressLocation.Notification,
-                                title: 'Retrying CLIProxyAPI installation...',
-                                cancellable: false
-                            },
-                            async (progress) => {
-                                let lastPercent = 0;
-                                return await installCLIProxyAPI(
-                                    (percent) => {
-                                        const delta = percent - lastPercent;
-                                        if (delta > 0) {
-                                            progress.report({ increment: delta, message: `${percent}%` });
-                                            lastPercent = percent;
-                                        }
-                                    },
-                                    this.output
-                                );
-                            }
-                        );
-                        if (retryResult.success) {
-                            if (retryResult.executablePath) {
-                                await this.updateServerConfig({ executablePath: retryResult.executablePath });
-                                this.config.executablePath = retryResult.executablePath;
-                                this.logInfo(`Updated executablePath in config: ${retryResult.executablePath}`);
-                            }
-                            const retrySelection = await vscode.window.showInformationMessage(
-                                `CLIProxyAPI ${retryResult.version} installed successfully!`,
-                                'Start Server'
-                            );
-                            if (retrySelection === 'Start Server') {
-                                await this.start();
-                            }
-                            this.config = this.getServerConfig();
-                        } else {
-                            const viewLogsSelection = await vscode.window.showErrorMessage(
-                                `Failed to install CLIProxyAPI: ${retryResult.error}`,
-                                'View Logs'
-                            );
-                            if (viewLogsSelection === 'View Logs') {
-                                this.output.show(true);
-                            }
-                        }
-                    } else if (selection === 'View Logs') {
-                        this.output.show(true);
-                    }
-                }
-            } else if (selection === 'Configure Path') {
-                vscode.commands.executeCommand('workbench.action.openSettings', 'antigravityCopilot.server.executablePath');
-            }
-            return;
         }
 
         // Ensure config.yaml exists before login
@@ -620,6 +433,56 @@ providers:
             'Follow the instructions in the terminal to login to Antigravity',
             'OK'
         );
+    }
+
+    /**
+     * Silently download and install CLIProxyAPI, showing only a progress
+     * notification. Returns true on success, false if installation failed
+     * (an error message is shown to the user in that case).
+     */
+    private async autoInstall(): Promise<boolean> {
+        const result = await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Antigravity: Downloading CLIProxyAPI...',
+                cancellable: false
+            },
+            async (progress) => {
+                let lastPercent = 0;
+                return await installCLIProxyAPI(
+                    (percent) => {
+                        const clamped = Math.min(100, percent);
+                        const delta = clamped - lastPercent;
+                        if (delta > 0) {
+                            progress.report({ increment: delta, message: `${clamped}%` });
+                            lastPercent = clamped;
+                        }
+                    },
+                    this.output
+                );
+            }
+        );
+
+        if (result.success) {
+            if (result.executablePath) {
+                // Save to machine-local settings so it never syncs to other machines
+                const config = vscode.workspace.getConfiguration('antigravityCopilot');
+                await config.update('server.executablePath', result.executablePath, vscode.ConfigurationTarget.Global);
+                this.config.executablePath = result.executablePath;
+                this.logInfo(`CLIProxyAPI ${result.version} installed at: ${result.executablePath}`);
+            }
+            vscode.window.showInformationMessage(`Antigravity: CLIProxyAPI ${result.version} installed successfully`);
+            return true;
+        } else {
+            const pick = await vscode.window.showErrorMessage(
+                `Antigravity: Failed to download CLIProxyAPI — ${result.error}`,
+                'View Logs'
+            );
+            if (pick === 'View Logs') {
+                this.output.show(true);
+            }
+            return false;
+        }
     }
 
     /** Returns true if PowerShell (powershell.exe or pwsh.exe) is available on PATH. */

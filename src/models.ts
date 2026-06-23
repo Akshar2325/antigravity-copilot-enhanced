@@ -30,6 +30,16 @@ interface OpenAIModelsResponse {
 }
 
 /**
+ * Model IDs that are now officially provided by Antigravity and should
+ * not be surfaced as separate entries in Copilot Chat.
+ */
+const EXCLUDED_MODEL_IDS = new Set([
+  "gemini-3-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-3-flash-agent",
+]);
+
+/**
  * Fetches models dynamically from CLIProxyAPI's /v1/models endpoint
  */
 export async function fetchModelsFromServer(
@@ -60,6 +70,12 @@ export async function fetchModelsFromServer(
 
           for (const model of response.data) {
             const modelId = model.id;
+
+            // Skip models now officially provided by Antigravity
+            if (EXCLUDED_MODEL_IDS.has(modelId)) {
+              continue;
+            }
+
             const serverUrl = `http://${host}:${port}/v1`;
             const displayName = formatModelName(modelId);
 
